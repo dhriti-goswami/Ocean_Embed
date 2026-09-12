@@ -1,6 +1,7 @@
 # Data & model artifacts — too large / often private, never commit these
 data/*
 !data/.gitkeep
+!data/README.md
 checkpoints/*
 !checkpoints/.gitkeep
 
