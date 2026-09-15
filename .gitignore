@@ -2,6 +2,7 @@
 data/*
 !data/.gitkeep
 !data/README.md
+!data/README.md
 checkpoints/*
 !checkpoints/.gitkeep
 
