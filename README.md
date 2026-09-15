@@ -34,7 +34,7 @@ float measurements the model never trained on.
 |---|---|---|---|
 | GLORYS (held-out days) | 0.53°C | 0.996 | Same source as training; 3 depths (0-30m, 1000m) show low R² due to low natural variability that season — see `docs/VALIDATION.md` |
 | ARGO (real, independent) | 0.96°C | 0.987 | **Every depth positive R²**, including the ones that struggled against GLORYS |
-| ARGO, after bias correction | — | — | Overall bias corrected from +0.287°C → -0.053°C, validated on held-out split |
+| ARGO, after bias correction (held-out test half) | 0.76°C | 0.992 | Bias corrected from +0.287°C → -0.053°C; RMSE improved from 0.87°C, tested on data the correction never saw |
 
 Full per-depth tables, exact methodology, and limitations:
 [`docs/VALIDATION.md`](docs/VALIDATION.md).
