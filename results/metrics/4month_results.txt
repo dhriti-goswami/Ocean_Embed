@@ -1,0 +1,22 @@
+=== OceanEmbed CNN -- 4 month training run (June-Sep 2023, Bay of Bengal) ===
+Training days: 100, Validation days: 22
+
+=== Overall ===
+  RMSE: 0.533  MAE: 0.379  R2: 0.996  Corr: 0.998  Bias: 0.079  n: 908160
+
+=== Per depth ===
+   0 m  RMSE: 0.456  MAE: 0.368  R2: -0.36  Corr: 0.496  Bias: 0.276
+   5 m  RMSE: 0.452  MAE: 0.362  R2: -0.607  Corr: 0.454  Bias: 0.285
+   10 m  RMSE: 0.45  MAE: 0.362  R2: -0.609  Corr: 0.453  Bias: 0.282
+   20 m  RMSE: 0.432  MAE: 0.344  R2: -0.733  Corr: 0.401  Bias: 0.253
+   30 m  RMSE: 0.437  MAE: 0.356  R2: -0.794  Corr: 0.0  Bias: 0.291
+   50 m  RMSE: 0.657  MAE: 0.48  R2: 0.598  Corr: 0.801  Bias: 0.038
+   75 m  RMSE: 0.817  MAE: 0.626  R2: 0.831  Corr: 0.915  Bias: -0.017
+   100 m  RMSE: 0.839  MAE: 0.639  R2: 0.856  Corr: 0.926  Bias: 0.079
+   125 m  RMSE: 0.808  MAE: 0.645  R2: 0.85  Corr: 0.926  Bias: 0.091
+   150 m  RMSE: 0.699  MAE: 0.559  R2: 0.824  Corr: 0.91  Bias: 0.018
+   200 m  RMSE: 0.411  MAE: 0.331  R2: 0.784  Corr: 0.895  Bias: -0.116
+   300 m  RMSE: 0.217  MAE: 0.17  R2: 0.651  Corr: 0.844  Bias: -0.088
+   500 m  RMSE: 0.158  MAE: 0.124  R2: 0.49  Corr: 0.738  Bias: -0.043
+   700 m  RMSE: 0.171  MAE: 0.134  R2: 0.371  Corr: 0.655  Bias: -0.042
+   1000 m  RMSE: 0.234  MAE: 0.179  R2: -0.074  Corr: 0.517  Bias: -0.12
