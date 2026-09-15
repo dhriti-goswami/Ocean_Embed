@@ -4,6 +4,11 @@ import numpy as np
 
 
 def denormalize(y_norm, y_mean, y_std):
+    y_mean = np.asarray(y_mean)
+    y_std = np.asarray(y_std)
+    if y_mean.ndim == 1:
+        y_mean = y_mean[None, :, None, None]
+        y_std = y_std[None, :, None, None]
     return y_norm * y_std + y_mean
 
 
