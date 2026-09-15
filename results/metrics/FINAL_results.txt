@@ -1,0 +1,82 @@
+=== OceanEmbed CNN -- FINAL RESULTS ===
+Training: 4 months (June-Sep 2023), Bay of Bengal, 100 train / 22 val days
+
+--- GLORYS-based validation (held-out days from training data) ---
+=== Overall ===
+  RMSE: 0.526  MAE: 0.365  R2: 0.996  Corr: 0.998  Bias: 0.055  n: 908160
+
+=== Per depth ===
+   0 m  RMSE: 0.385  MAE: 0.304  R2: 0.031  Corr: 0.462  Bias: 0.118
+   5 m  RMSE: 0.374  MAE: 0.296  R2: -0.102  Corr: 0.434  Bias: 0.14
+   10 m  RMSE: 0.372  MAE: 0.295  R2: -0.1  Corr: 0.436  Bias: 0.136
+   20 m  RMSE: 0.369  MAE: 0.293  R2: -0.265  Corr: 0.393  Bias: 0.118
+   30 m  RMSE: 0.437  MAE: 0.356  R2: -0.794  Corr: 0.0  Bias: 0.291
+   50 m  RMSE: 0.699  MAE: 0.506  R2: 0.545  Corr: 0.792  Bias: 0.107
+   75 m  RMSE: 0.847  MAE: 0.648  R2: 0.818  Corr: 0.905  Bias: 0.055
+   100 m  RMSE: 0.86  MAE: 0.643  R2: 0.849  Corr: 0.924  Bias: 0.154
+   125 m  RMSE: 0.815  MAE: 0.646  R2: 0.848  Corr: 0.923  Bias: 0.105
+   150 m  RMSE: 0.688  MAE: 0.546  R2: 0.829  Corr: 0.911  Bias: -0.015
+   200 m  RMSE: 0.397  MAE: 0.322  R2: 0.798  Corr: 0.899  Bias: -0.086
+   300 m  RMSE: 0.213  MAE: 0.167  R2: 0.662  Corr: 0.839  Bias: -0.073
+   500 m  RMSE: 0.168  MAE: 0.133  R2: 0.421  Corr: 0.717  Bias: -0.056
+   700 m  RMSE: 0.177  MAE: 0.138  R2: 0.332  Corr: 0.667  Bias: -0.062
+   1000 m  RMSE: 0.232  MAE: 0.175  R2: -0.061  Corr: 0.5  Bias: -0.112
+
+--- Independent ARGO validation (real float measurements, full 162 profiles) ---
+=== Overall ===
+  RMSE: 0.963  MAE: 0.562  R2: 0.987  Corr: 0.994  Bias: 0.312  n: 2208
+
+=== Per depth ===
+   0 m  RMSE: 0.424  MAE: 0.363  R2: 0.017  Corr: 0.503  Bias: 0.196
+   5 m  RMSE: 1.196  MAE: 0.364  R2: 0.091  Corr: 0.32  Bias: 0.136
+   10 m  RMSE: 0.64  MAE: 0.329  R2: 0.214  Corr: 0.488  Bias: 0.093
+   20 m  RMSE: 0.511  MAE: 0.349  R2: 0.328  Corr: 0.604  Bias: 0.106
+   30 m  RMSE: 0.742  MAE: 0.499  R2: 0.482  Corr: 0.745  Bias: 0.223
+   50 m  RMSE: 1.184  MAE: 0.881  R2: 0.612  Corr: 0.86  Bias: 0.633
+   75 m  RMSE: 1.684  MAE: 1.254  R2: 0.556  Corr: 0.854  Bias: 1.047
+   100 m  RMSE: 1.63  MAE: 1.268  R2: 0.574  Corr: 0.866  Bias: 1.046
+   125 m  RMSE: 1.409  MAE: 1.14  R2: 0.551  Corr: 0.831  Bias: 0.752
+   150 m  RMSE: 0.976  MAE: 0.757  R2: 0.583  Corr: 0.814  Bias: 0.352
+   200 m  RMSE: 0.524  MAE: 0.39  R2: 0.529  Corr: 0.759  Bias: 0.108
+   300 m  RMSE: 0.21  MAE: 0.156  R2: 0.579  Corr: 0.761  Bias: -0.004
+   500 m  RMSE: 0.181  MAE: 0.14  R2: 0.532  Corr: 0.748  Bias: 0.008
+   700 m  RMSE: 0.204  MAE: 0.156  R2: 0.258  Corr: 0.699  Bias: -0.111
+   1000 m  RMSE: 0.158  MAE: 0.126  R2: 0.236  Corr: 0.676  Bias: -0.079
+
+--- ARGO validation AFTER bias correction (tested on held-out half, honest) ---
+=== Overall ===
+  RMSE: 0.755  MAE: 0.481  R2: 0.992  Corr: 0.996  Bias: -0.053  n: 1101
+
+=== Per depth ===
+   0 m  RMSE: 0.397  MAE: 0.346  R2: 0.255  Corr: 0.527  Bias: -0.027
+   5 m  RMSE: 0.376  MAE: 0.306  R2: 0.415  Corr: 0.727  Bias: -0.125
+   10 m  RMSE: 0.361  MAE: 0.295  R2: 0.45  Corr: 0.716  Bias: -0.043
+   20 m  RMSE: 0.509  MAE: 0.339  R2: 0.422  Corr: 0.663  Bias: 0.083
+   30 m  RMSE: 0.658  MAE: 0.433  R2: 0.535  Corr: 0.759  Bias: 0.039
+   50 m  RMSE: 0.951  MAE: 0.73  R2: 0.613  Corr: 0.792  Bias: -0.137
+   75 m  RMSE: 1.278  MAE: 1.015  R2: 0.657  Corr: 0.818  Bias: -0.229
+   100 m  RMSE: 1.324  MAE: 1.0  R2: 0.661  Corr: 0.82  Bias: -0.215
+   125 m  RMSE: 1.209  MAE: 0.92  R2: 0.653  Corr: 0.816  Bias: -0.167
+   150 m  RMSE: 0.896  MAE: 0.695  R2: 0.652  Corr: 0.815  Bias: -0.046
+   200 m  RMSE: 0.5  MAE: 0.38  R2: 0.57  Corr: 0.769  Bias: 0.055
+   300 m  RMSE: 0.233  MAE: 0.17  R2: 0.532  Corr: 0.73  Bias: -0.008
+   500 m  RMSE: 0.181  MAE: 0.138  R2: 0.447  Corr: 0.721  Bias: 0.02
+   700 m  RMSE: 0.165  MAE: 0.125  R2: 0.445  Corr: 0.694  Bias: 0.023
+   1000 m  RMSE: 0.139  MAE: 0.107  R2: 0.419  Corr: 0.68  Bias: 0.021
+
+Learned per-depth bias correction (degrees C):
+      0m  +0.213
+      5m  +0.199
+     10m  +0.114
+     20m  +0.064
+     30m  +0.204
+     50m  +0.702
+     75m  +1.161
+    100m  +1.154
+    125m  +0.834
+    150m  +0.375
+    200m  +0.080
+    300m  -0.000
+    500m  -0.002
+    700m  -0.122
+   1000m  -0.089

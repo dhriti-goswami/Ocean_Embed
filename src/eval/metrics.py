@@ -49,3 +49,22 @@ def print_metrics_report(metrics, target_depths):
     for depth, m in zip(target_depths, metrics["per_depth"]):
         print("  ", int(depth), "m  RMSE:", round(m["rmse"], 3), " MAE:", round(m["mae"], 3),
               " R2:", round(m["r2"], 3), " Corr:", round(m["correlation"], 3), " Bias:", round(m["bias"], 3))
+
+
+def compute_argo_metrics(matched_true, matched_pred, target_depths):
+    """NaN-aware version for ARGO validation, where some depths legitimately
+    have no measurement (we never extrapolate ARGO beyond its own range)."""
+    n_depth = matched_true.shape[1]
+    valid_overall = ~np.isnan(matched_true) & ~np.isnan(matched_pred)
+    overall = _metrics_flat(matched_true[valid_overall], matched_pred[valid_overall])
+    per_depth = []
+    for d in range(n_depth):
+        t = matched_true[:, d]
+        p = matched_pred[:, d]
+        valid = ~np.isnan(t) & ~np.isnan(p)
+        if valid.sum() < 2:
+            per_depth.append({"rmse": float("nan"), "mae": float("nan"), "r2": float("nan"),
+                               "correlation": float("nan"), "bias": float("nan"), "n": int(valid.sum())})
+        else:
+            per_depth.append(_metrics_flat(t[valid], p[valid]))
+    return {"overall": overall, "per_depth": per_depth}
