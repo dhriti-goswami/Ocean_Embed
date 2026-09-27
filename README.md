@@ -178,11 +178,19 @@ Ocean_Embed/
 │   ├── physics/                   # losses.py (cyclone-aware, stability, steric), products.py (TCHP, D26, D20, MLD)
 │   ├── train/                     # trainer.py
 │   └── eval/                      # glorys.py, argo.py, uncertainty.py, casestudy.py, figures.py
+├── TROUBLESHOOTING.md
 ├── docs/
 │   ├── ARCHITECTURE.md            # network, shapes, parameter counts
 │   ├── METHODOLOGY.md             # data, split, physics losses, uncertainty, evaluation, limitations
+│   ├── TRAINING_METHODOLOGY.md    # training guide, config keys, defects found and fixed
 │   ├── RESULTS.md                 # all result tables + case study
-│   ├── CITATIONS.md               # datasets, methods, prior work
+│   ├── NOTATION.md                # symbols and abbreviations -> code
+│   ├── CITATIONS.md               # index + findings that changed the design
+│   ├── CITATIONS_data.md          # datasets
+│   ├── CITATIONS_methods.md       # methods and product definitions
+│   ├── CITATIONS_benchmarks.md    # prior TCHP / reconstruction work, case-study event
+│   ├── PREREGISTRATION.md         # next experiment, fixed in advance
+│   ├── DEPLOYMENT.md              # outputs, backend integration, daily operation
 │   └── legacy_v1/                 # v1 documentation
 ├── data/                          # raw/ and processed/ (not committed); README describes the cube
 ├── results/                       # result tables and figures (README lists the files)
@@ -197,7 +205,12 @@ Ocean_Embed/
 - [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — network design, input/output shapes, parameter counts
 - [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) — data, preprocessing, split, physics losses, uncertainty calibration, evaluation protocol, limitations
 - [`docs/RESULTS.md`](docs/RESULTS.md) — every result table, ablations, case study, relation to prior work
-- [`docs/CITATIONS.md`](docs/CITATIONS.md) — dataset DOIs, methods, prior work
+- [`docs/TRAINING_METHODOLOGY.md`](docs/TRAINING_METHODOLOGY.md) — practical training guide, every config key, defects found and fixed
+- [`docs/NOTATION.md`](docs/NOTATION.md) — every symbol and abbreviation, mapped to the code
+- [`docs/CITATIONS.md`](docs/CITATIONS.md) — citation index with verification tags ([data](docs/CITATIONS_data.md), [methods](docs/CITATIONS_methods.md), [prior work](docs/CITATIONS_benchmarks.md))
+- [`docs/PREREGISTRATION.md`](docs/PREREGISTRATION.md) — hypotheses and success criteria for the next (multi-year) experiment, fixed in advance
+- [`docs/DEPLOYMENT.md`](docs/DEPLOYMENT.md) — outputs, integration with the team backend, daily operation
+- [`TROUBLESHOOTING.md`](TROUBLESHOOTING.md) — Colab, data, ARGO, GitHub and test issues
 
 ## Tests
 

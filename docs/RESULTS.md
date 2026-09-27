@@ -1,5 +1,8 @@
 # Results — Bay of Bengal, 1 Jun – 31 Aug 2023
 
+> These results were not pre-registered (see [PREREGISTRATION.md](PREREGISTRATION.md)); read them
+> as a proof of concept.
+
 Train 1 Jun–31 Jul, validation 1–15 Aug, **test 16–31 Aug** (never used for training or model
 selection). Every model trained with 3 seeds; values are mean ± std across seeds.
 Baseline "climatology" = training-period mean at each cell and depth.
@@ -74,7 +77,7 @@ multi-year training set containing many cyclones is the main next step.
 
 Satellite-based TCHP estimation for the Indian Ocean is established: e.g. altimetry-based
 estimates (RMSE ≈ 21 kJ/cm² vs in-situ) and a neural-network TCHP model from SSH anomaly, SST and
-climatological D26 (Ali et al., 2012; see CITATIONS.md). Those predict TCHP as a single 2-D field.
+climatological D26 (Ali et al., 2012; see [CITATIONS_benchmarks.md](CITATIONS_benchmarks.md)). Those predict TCHP as a single 2-D field.
 OceanEmbed instead reconstructs the full 35-level temperature field and trains it so that the
 TCHP/D26/D20/MLD derived from that field are accurate, and attaches a calibrated uncertainty.
 Numbers are not directly comparable across studies (different periods, data and validation sets).
