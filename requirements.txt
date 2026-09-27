@@ -8,3 +8,4 @@ matplotlib
 pyyaml
 requests
 scipy
+zarr

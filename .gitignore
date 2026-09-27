@@ -8,8 +8,8 @@ data/processed/*
 
 # Run outputs (checkpoints, NetCDF, logs) - regenerate with `make experiments`
 artifacts/
-checkpoints/*
-!checkpoints/.gitkeep
+/checkpoints/*
+!/checkpoints/.gitkeep
 results/argo_cache.csv
 results/argo_matches_*.csv
 results/uncertainty_argo_points.csv
