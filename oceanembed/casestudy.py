@@ -115,15 +115,18 @@ def run(data_path, run_dirs, out_dir, argo_cache=None, before="2023-07-28", afte
     dm = np.mean([m["TCHP_kJcm2"][ia] - m["TCHP_kJcm2"][ib] for m in members], 0)
     dg = P_true["TCHP_kJcm2"][ia] - P_true["TCHP_kJcm2"][ib]
     lim = np.nanpercentile(np.abs(np.concatenate([dm[data.mask2d], dg[data.mask2d]])), 98)
-    fig, axes = plt.subplots(1, 2, figsize=(10, 4.2))
-    for ax, f, ttl in [(axes[0], dg, "GLORYS"), (axes[1], dm, "OceanEmbed (satellite only)")]:
+    fig, axes = plt.subplots(1, 2, figsize=(11, 4.8))
+    for ax, f, ttl in [(axes[0], dg, "GLORYS (reference)"), (axes[1], dm, "OceanEmbed (satellite only)")]:
         im = ax.pcolormesh(data.lon, data.lat, np.where(data.mask2d, f, np.nan), cmap="RdBu_r",
                            vmin=-lim, vmax=lim, shading="auto")
         ax.plot(EVENT["lon"], EVENT["lat"], "k*", ms=12)
         ax.add_patch(plt.Rectangle((BOX["lon"][0], BOX["lat"][0]), BOX["lon"][1] - BOX["lon"][0],
                                    BOX["lat"][1] - BOX["lat"][0], fill=False, ls="--"))
-        ax.set_title(f"{ttl}: ΔTCHP {after} minus {before}", fontsize=9); ax.set_aspect("equal")
+        ax.set_title(ttl, fontsize=10); ax.set_aspect("equal")
+        ax.set_xlabel("Longitude (°E)", fontsize=8); ax.set_ylabel("Latitude (°N)", fontsize=8)
     fig.colorbar(im, ax=axes, shrink=0.85, label="ΔTCHP (kJ/cm²)")
+    fig.suptitle(f"Change in cyclone heat potential, {after} minus {before} "
+                 f"(★ = deep depression, 1 Aug 2023)", fontsize=10)
     f2 = os.path.join(out_dir, "fig_casestudy_tchp_change.png"); fig.savefig(f2, dpi=150); plt.close(fig)
 
     # correlation of daily box-mean evolution, model vs GLORYS
