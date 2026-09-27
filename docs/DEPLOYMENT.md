@@ -9,7 +9,8 @@ How OceanEmbed's outputs reach users, and how to run it as a daily product.
 | trained weights | `python -m oceanembed train` → `best.pt` (one per seed) | ~15 MB each (3.73 M float32 parameters + normalization) |
 | daily 3D temperature + uncertainty | `python -m oceanembed uncertainty ... --outputs <dir>` | CF-1.8 NetCDF, `temperature`, `temperature_std` on `(time, depth, latitude, longitude)` |
 | latent embeddings | same step | NetCDF, `embedding (time, channel, y, x)` |
-| cyclone products | `oceanembed.physics.products.all_products()` on the NetCDF | TCHP, D26, D20, MLD per cell and day |
+| backend data store | `python -m oceanembed export-backend` | Zarr: `temperature`, `temperature_std` (time, depth, lat, lon) + `tchp`, `d26`, `d20`, `mld` (time, lat, lon) |
+| validation results | `python -m oceanembed export-results` | `validation.json`: all metrics, seeds aggregated (mean, std), case study; NaN → null |
 
 ## Integration with the team application
 

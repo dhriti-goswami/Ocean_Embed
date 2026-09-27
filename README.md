@@ -167,7 +167,19 @@ python -m oceanembed export-backend --nc artifacts/outputs/oceanembed_temperatur
     --out ../backend/data/ocean_temperature.zarr
 ```
 
-Tested: the exported store loads with the backend's own `extract_profile` and `extract_layer`.
+The store holds `temperature` and `temperature_std` on `(time, depth, latitude, longitude)`
+plus the daily 2D cyclone / ocean-state fields `tchp` (kJ/cm²), `d26`, `d20` and `mld` (m) on
+`(time, latitude, longitude)`. Land and seabed are NaN. Tested: the exported store loads with the
+backend's own `extract_profile` and `extract_layer`.
+
+For the frontend's Validation page, bundle every result table into one JSON file:
+
+```bash
+python -m oceanembed export-results --results results --out results/validation.json
+```
+
+The Colab notebook runs both exports automatically (section 9b) and includes
+`ocean_temperature.zarr` and `validation.json` in the downloaded zip.
 
 ---
 
