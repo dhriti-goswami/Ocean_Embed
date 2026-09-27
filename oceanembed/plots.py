@@ -9,10 +9,13 @@ import numpy as np
 import pandas as pd
 
 
-def per_depth_rmse(csv_path, out_png):
+def per_depth_rmse(csv_path, out_png, select=None):
     df = pd.read_csv(csv_path)
     fig, ax = plt.subplots(figsize=(5.5, 7))
-    for c in [c for c in df.columns if c.startswith("rmse_")]:
+    cols = [c for c in df.columns if c.startswith("rmse_")]
+    if select:
+        cols = [c for c in cols if c.replace("rmse_", "") in select]
+    for c in cols:
         ax.plot(df[c], df.depth_m, marker="o", ms=3, label=c.replace("rmse_", ""))
     ax.invert_yaxis(); ax.set_yscale("symlog", linthresh=20)
     ax.set_xlabel("RMSE vs GLORYS, held-out days (°C)"); ax.set_ylabel("Depth (m)")

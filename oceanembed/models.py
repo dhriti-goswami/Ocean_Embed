@@ -82,8 +82,10 @@ class ViTBranch(nn.Module):
 
 class OceanEmbedNet(nn.Module):
     def __init__(self, in_ch, n_depth, grid_hw, out_vars=1, use_vit=True, use_fno=True,
-                 base=32, latent_dim=128, vit_dim=128, vit_depth=4, fno_width=32, fno_modes=12):
+                 base=32, latent_dim=128, vit_dim=128, vit_depth=4, fno_width=32, fno_modes=12,
+                 uncertainty=False):
         super().__init__()
+        self.uncertainty = uncertainty
         self.use_vit, self.use_fno = use_vit, use_fno
         self.n_depth, self.out_vars = n_depth, out_vars
         H, W = grid_hw
@@ -100,7 +102,9 @@ class OceanEmbedNet(nn.Module):
         self.u3 = block(latent_dim + base * 4, base * 4)
         self.u2 = block(base * 4 + base * 2, base * 2)
         self.u1 = block(base * 2 + base + (fno_width if use_fno else 0), base * 2)
-        self.head = nn.Conv2d(base * 2, n_depth * out_vars, 1)
+        # mean for every output channel (+ log-variance of temperature if uncertainty=True)
+        self.n_mean = n_depth * out_vars
+        self.head = nn.Conv2d(base * 2, self.n_mean + (n_depth if uncertainty else 0), 1)
 
     def encode(self, x):
         """Returns the latent ocean embedding z (B, latent_dim, H/8, W/8) and skip features."""
@@ -137,5 +141,5 @@ VARIANTS = {
 }
 
 
-def build_model(variant, in_ch, n_depth, grid_hw, out_vars):
-    return OceanEmbedNet(in_ch, n_depth, grid_hw, out_vars, **VARIANTS[variant])
+def build_model(variant, in_ch, n_depth, grid_hw, out_vars, uncertainty=False):
+    return OceanEmbedNet(in_ch, n_depth, grid_hw, out_vars, uncertainty=uncertainty, **VARIANTS[variant])

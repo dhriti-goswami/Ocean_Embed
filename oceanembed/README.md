@@ -34,7 +34,49 @@ oceanembed/argo.py     independent ARGO floats (Ifremer ERDDAP, QC=1), by depth 
 oceanembed/infer.py    CF NetCDF output (backend-compatible) + embeddings
 ```
 
-## Physics-informed constraints
+
+## v2.1 — what is new
+
+**1. Cyclone-aware physics losses** (`physics.py`, `--phys_mode cyclone`). The v2 constraint losses
+(stability, MLD homogeneity) were already satisfied by a model fitted to GLORYS, so they could
+not improve accuracy: a stable-but-wrong profile costs nothing. v2.1 adds differentiable (soft)
+versions of the ocean-state quantities used for cyclone and ocean forecasting and matches them
+to the target:
+
+| quantity | meaning | soft form |
+|---|---|---|
+| D26 | depth of the 26 °C isotherm | Σ dz · sigmoid((T − 26)/τ) |
+| TCHP | Tropical Cyclone Heat Potential (kJ/cm²) | ρ c_p Σ dz · softplus(T − 26) |
+| D20 | thermocline (20 °C isotherm) depth | Σ dz · sigmoid((T − 20)/τ) |
+| MLD | mixed layer depth | Σ dz · sigmoid((T − (T₁₀ − 0.5))/τ) |
+
+Stability and steric-height/SSH consistency are kept. Evaluation uses the exact (hard)
+definitions in `products.py`, against GLORYS and against the same quantities computed from ARGO.
+
+**2. Calibrated uncertainty** (`uncertainty.py`). A heteroscedastic head predicts a per-point
+temperature variance (trained with a Gaussian NLL on a detached mean, so it cannot degrade the
+mean). Each seed's σ is rescaled by one factor fitted on validation days; the 3-seed ensemble
+combines within-model variance and between-model spread. Coverage of 50–95 % intervals is
+checked on test days against GLORYS and against ARGO. For ARGO, the float-vs-model-cell
+representativeness error (ARGO − GLORYS RMS per depth band, fitted on non-test days) is added
+in quadrature and reported separately. Final output: `temperature` + `temperature_std`.
+
+**3. Ocean memory** (`data.py`, `history_days=2`): surface fields from the previous 2 days are
+inputs, since the subsurface responds to forcing with a lag. Only past/present surface data.
+
+**4. Real-event case study** (`casestudy.py`): the deep depression over the NE Bay of Bengal on
+1 Aug 2023 (IMD; 21.2 °N, 91.2 °E). Box-mean daily SST, MLD, D26 and TCHP: satellite-only
+reconstruction vs GLORYS vs ARGO floats, plus ΔTCHP maps. Note: 18–31 July are training days;
+August days are validation/test days.
+
+| run (3 seeds each) | encoder | physics |
+|---|---|---|
+| `unet` | CNN | none |
+| `oceanembed_nophys` | ViT + FNO | none |
+| `oceanembed_constraints` | ViT + FNO | v2 constraints |
+| `oceanembed_cyclone` | ViT + FNO | cyclone-aware (main) |
+
+## Physics-informed constraints (v2)
 
 | PPT constraint | Implementation | Status |
 |---|---|---|
@@ -54,6 +96,14 @@ stability and steric terms use full density; otherwise they use temperature only
 | `unet` | CNN only | no | architecture ablation |
 | `oceanembed_nophys` | ViT + FNO | no | physics ablation |
 | `oceanembed_pinn` | ViT + FNO | yes | **main model** |
+
+Each model is trained with 3 seeds and reported as mean (std), so differences smaller than
+run-to-run noise are not over-interpreted. Physics runs: 5 warm-up epochs, 5-epoch ramp, and
+checkpoints are only selected once the physics terms are at full weight. All runs use input-noise
+augmentation and weight decay (61 training days is small for a 3.6M-parameter network).
+
+Physics diagnostics reported alongside accuracy: deep temperature inversions (> 0.05 °C below
+150 m, % of level pairs), density inversions, and mixed-layer-depth RMSE vs. GLORYS.
 
 Split is contiguous in time (train Jun 1–Jul 31, val Aug 1–15, test Aug 16–31); random
 day-level splits would leak information between near-identical neighbouring days.
