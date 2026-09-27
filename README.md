@@ -8,6 +8,13 @@ measurements, with a held-out-tested bias correction.
 Built for Smart India Hackathon 2026 (Problem Statement 26066, Team
 BitShifters98).
 
+
+> **New (branch `pinn-pipeline`):** full satellite-embedding pipeline — ViT + FNO encoder,
+> U-Net decoder, physics-informed losses, 35 depth levels, PS-specified satellite inputs
+> (OSTIA, SMOS/SMAP, DUACS, OSCAR, CCMP). See [`oceanembed/README.md`](oceanembed/README.md)
+> and run [`notebooks/run_pipeline_colab.ipynb`](notebooks/run_pipeline_colab.ipynb).
+> The CNN below (`src/`) is kept as the earlier baseline.
+
 ---
 
 ## Overview
