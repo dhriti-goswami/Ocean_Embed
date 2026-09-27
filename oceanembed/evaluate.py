@@ -52,6 +52,20 @@ def instability_fraction(T, S, mask3d):
     return float(bad.sum() / max(pair.sum(), 1))
 
 
+def deep_inversion_pct(T, depths, mask3d, below=150.0, tol=0.05):
+    """% of adjacent level pairs below `below` m where T increases with depth by > tol deg C."""
+    pair = (mask3d[:-1] & mask3d[1:]) & (depths[1:] >= below)[:, None, None]
+    bad = ((T[:, 1:] - T[:, :-1]) > tol) & pair[None]
+    return float(100 * bad.sum() / max(pair.sum() * T.shape[0], 1))
+
+
+def mld_rmse(T_pred, T_true, depths):
+    from .data import compute_mld
+    a, b = compute_mld(T_pred, depths), compute_mld(T_true, depths)
+    m = ~np.isnan(T_true[:, 0])
+    return float(np.sqrt(np.mean((a[m] - b[m]) ** 2)))
+
+
 def evaluate(data_path, run_dirs, out_dir):
     os.makedirs(out_dir, exist_ok=True)
     data = OceanData(DataConfig(path=data_path))
@@ -74,10 +88,13 @@ def evaluate(data_path, run_dirs, out_dir):
         tables[name] = per_depth(true, p, data.depths)
         row = dict(model=name, **metrics(true, p))
         S_for_stab = S_preds[name] if S_preds[name] is not None else S_true
-        row["unstable_pairs_pct"] = 100 * instability_fraction(p, S_for_stab, data.mask3d)
+        row["density_inv_pct"] = 100 * instability_fraction(p, S_for_stab, data.mask3d)
+        row["deep_T_inv_pct"] = deep_inversion_pct(p, data.depths, data.mask3d)
+        row["mld_rmse_m"] = mld_rmse(p, true, data.depths)
         overall.append(row)
     overall = pd.DataFrame(overall)
     tgt_stab = 100 * instability_fraction(true, S_true, data.mask3d)
+    tgt_deep = deep_inversion_pct(true, data.depths, data.mask3d)
 
     # wide per-depth RMSE table (one column per model) - the key comparison
     wide = pd.DataFrame({"depth_m": data.depths})
@@ -91,12 +108,12 @@ def evaluate(data_path, run_dirs, out_dir):
 
     print(f"\n=== Held-out TEST days ({len(te)} days) vs GLORYS ===")
     print(overall.round(3).to_string(index=False))
-    print(f"(GLORYS target itself: {tgt_stab:.2f}% unstable pairs)")
+    print(f"(GLORYS target itself: density_inv {tgt_stab:.2f}%, deep_T_inv {tgt_deep:.2f}%)")
     print("\n=== Per-depth RMSE (deg C) ===")
     print(wide[["depth_m"] + [c for c in wide if c.startswith("rmse_")]].round(3).to_string(index=False))
     with open(os.path.join(out_dir, "glorys_test_summary.json"), "w") as f:
         json.dump({"test_days": [str(t)[:10] for t in data.times[te]],
-                   "target_unstable_pairs_pct": tgt_stab,
+                   "target_density_inv_pct": tgt_stab, "target_deep_T_inv_pct": tgt_deep,
                    "overall": overall.to_dict(orient="records")}, f, indent=1)
     return overall, wide
 

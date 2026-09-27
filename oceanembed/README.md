@@ -55,6 +55,14 @@ stability and steric terms use full density; otherwise they use temperature only
 | `oceanembed_nophys` | ViT + FNO | no | physics ablation |
 | `oceanembed_pinn` | ViT + FNO | yes | **main model** |
 
+Each model is trained with 3 seeds and reported as mean (std), so differences smaller than
+run-to-run noise are not over-interpreted. Physics runs: 5 warm-up epochs, 5-epoch ramp, and
+checkpoints are only selected once the physics terms are at full weight. All runs use input-noise
+augmentation and weight decay (61 training days is small for a 3.6M-parameter network).
+
+Physics diagnostics reported alongside accuracy: deep temperature inversions (> 0.05 °C below
+150 m, % of level pairs), density inversions, and mixed-layer-depth RMSE vs. GLORYS.
+
 Split is contiguous in time (train Jun 1–Jul 31, val Aug 1–15, test Aug 16–31); random
 day-level splits would leak information between near-identical neighbouring days.
 

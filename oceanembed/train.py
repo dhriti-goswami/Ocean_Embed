@@ -65,7 +65,7 @@ def train(args):
                            data.has_salinity, data.sla_channel,
                            w_mld=args.w_mld, w_stab=args.w_stab, w_steric=args.w_steric).to(device)
 
-    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=1e-4)
+    opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
     os.makedirs(args.out, exist_ok=True)
     best, best_ep, history = float("inf"), -1, []
@@ -74,10 +74,13 @@ def train(args):
     for ep in range(1, args.epochs + 1):
         model.train()
         # physics weight ramps in after a warm-up so the net first learns the data
-        ramp = 0.0 if ep <= args.warmup else min(1.0, (ep - args.warmup) / max(args.warmup, 1))
+        ramp = 0.0 if ep <= args.warmup else min(1.0, (ep - args.warmup) / max(args.ramp, 1))
         agg = {"data": 0.0, "total": 0.0}
         for x, y, m3, mld, _ in tr:
             x, y, m3, mld = x.to(device), y.to(device), m3.to(device), mld.to(device)
+            if args.noise > 0:                       # input-noise augmentation (61 days is tiny)
+                ocean = m3[:, :1].float()
+                x = x + args.noise * torch.randn_like(x) * ocean
             out = model(x)
             loss, lt = masked_mse(out, y, m3, D)
             agg["data"] += lt
@@ -94,7 +97,8 @@ def train(args):
         agg = {k: v / len(tr) for k, v in agg.items()}
         v_rmse = val_rmse_degC(model, va, data, device)
         history.append({"epoch": ep, "val_rmse_degC": v_rmse, "physics_ramp": ramp, **agg})
-        if v_rmse < best:
+        select_from = min(args.warmup + args.ramp, args.epochs) if phys is not None else 1
+        if ep >= select_from and v_rmse < best:
             best, best_ep = v_rmse, ep
             torch.save({"model": model.state_dict(), "variant": args.variant, "out_vars": out_vars,
                         "in_ch": data.n_inputs, "grid": (data.Hp, data.Wp), "depths": data.depths,
@@ -105,7 +109,7 @@ def train(args):
             extra = " ".join(f"{k}={v:.4f}" for k, v in agg.items() if k not in ("data", "total"))
             print(f"ep {ep:4d} | data {agg['data']:.4f} | val RMSE {v_rmse:.3f} C | "
                   f"best {best:.3f} @ {best_ep} | {extra} | {time.time()-t0:.0f}s")
-        if ep - best_ep >= args.patience:
+        if best_ep > 0 and ep - best_ep >= args.patience:
             print(f"early stop at epoch {ep} (no val improvement for {args.patience} epochs)")
             break
 
@@ -128,8 +132,11 @@ def parse(argv=None):
     p.add_argument("--epochs", type=int, default=200)
     p.add_argument("--batch", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-3)
-    p.add_argument("--warmup", type=int, default=20)
-    p.add_argument("--patience", type=int, default=50)
+    p.add_argument("--warmup", type=int, default=5)
+    p.add_argument("--ramp", type=int, default=5)
+    p.add_argument("--noise", type=float, default=0.05)
+    p.add_argument("--wd", type=float, default=5e-4)
+    p.add_argument("--patience", type=int, default=40)
     p.add_argument("--w_mld", type=float, default=0.05)
     p.add_argument("--w_stab", type=float, default=1.0)
     p.add_argument("--w_steric", type=float, default=0.1)
