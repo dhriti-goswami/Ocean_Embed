@@ -1,171 +1,198 @@
-# OceanEmbed — Subsurface Ocean Temperature Reconstruction
+# OceanEmbed — satellite-embedding reconstruction of subsurface ocean temperature
 
-CNN that reconstructs a subsurface ocean temperature profile (15 depth
-levels, 0–1000m) from surface satellite/reanalysis observations over the
-Bay of Bengal — independently validated against real ARGO float
-measurements, with a held-out-tested bias correction.
+OceanEmbed looks only at **surface satellite observations** and reconstructs the ocean's
+**temperature from the surface down to ~900 m**, every day, on a 0.25° grid over the
+**Bay of Bengal**, with a **calibrated uncertainty** at every point and the
+**cyclone-relevant ocean products** derived from it (cyclone heat potential, 26 °C and 20 °C
+isotherm depths, mixed layer depth).
 
-Built for Smart India Hackathon 2026 (Problem Statement 26066, Team
-BitShifters98).
+Built for **Smart India Hackathon 2026**, Problem Statement **26066** (INCOIS), team
+**BitShifters98**.
 
-
-> **New (branch `pinn-pipeline`):** full satellite-embedding pipeline — ViT + FNO encoder,
-> U-Net decoder, physics-informed losses, 35 depth levels, PS-specified satellite inputs
-> (OSTIA, SMOS/SMAP, DUACS, OSCAR, CCMP). See [`oceanembed/README.md`](oceanembed/README.md)
-> and run [`notebooks/run_pipeline_colab.ipynb`](notebooks/run_pipeline_colab.ipynb).
-> The CNN below (`src/`) is kept as the earlier baseline.
+> Current system: **v2.1** (`oceanembed/`). The earlier CNN baseline (v1, `src/`) is kept for
+> reference at the end of this page.
 
 ---
 
-## Overview
+## Headline results (Bay of Bengal, Jun–Aug 2023, held-out test days 16–31 Aug)
 
-A working, validated pipeline that turns 5 surface variables (salinity,
-sea surface height, wind u/v, bathymetry) into a full-depth temperature
-profile at every point in the Bay of Bengal, trained on 4 months of real
-GLORYS reanalysis data and independently checked against 162 real ARGO
-float measurements the model never trained on.
-
-**Key Capabilities:**
-
-- Predicts temperature at 15 standard depths (0–1000m) from surface data alone
-- Independent validation against real ARGO float profiles, never used in training
-- Per-depth model selection: falls back to a climatological baseline at any
-  depth where the CNN doesn't genuinely add value
-- Held-out-tested bias correction against real measurements
-- Depth-wise error breakdown (RMSE, MAE, R², correlation, bias) — not just
-  an overall average
-
-## Model Performance
-
-| Validation | Overall RMSE | Overall R² | Notes |
+| | OceanEmbed | climatology baseline | improvement |
 |---|---|---|---|
-| GLORYS (held-out days) | 0.53°C | 0.996 | Same source as training; 3 depths (0-30m, 1000m) show low R² due to low natural variability that season — see `docs/VALIDATION.md` |
-| ARGO (real, independent) | 0.96°C | 0.987 | **Every depth positive R²**, including the ones that struggled against GLORYS |
-| ARGO, after bias correction (held-out test half) | 0.76°C | 0.992 | Bias corrected from +0.287°C → -0.053°C; RMSE improved from 0.87°C, tested on data the correction never saw |
+| Temperature RMSE, 0–902 m (vs GLORYS) | **0.63 °C** | 0.97 °C | **−36 %** |
+| Cyclone heat potential (TCHP) RMSE vs **independent ARGO floats** | **16.5 kJ/cm²** | 29.8 kJ/cm² | **−45 %** |
+| 26 °C isotherm depth RMSE vs GLORYS | **8.4 m** | 15.0 m | −44 % |
+| Temperature RMSE vs ARGO floats (test days) | **0.92 °C** | 1.25 °C | −26 % |
+| Share of observations inside the 90 % uncertainty interval | **83–87 %** | – | – |
 
-Full per-depth tables, exact methodology, and limitations:
-[`docs/VALIDATION.md`](docs/VALIDATION.md).
+All numbers are means over 3 training seeds. Full tables, ablations and caveats:
+[`oceanembed/README.md`](oceanembed/README.md#results-bay-of-bengal-1-jun--31-aug-2023).
 
 ---
 
-## Quick Start
+## How it works
+
+```
+ SATELLITE INPUTS (today + previous 2 days)        TRAINING TARGET
+  SST  - OSTIA            SSS - SMOS/SMAP            GLORYS reanalysis temperature
+  SSH  - DUACS (SLA, ADT) currents - OSCAR           35 levels, 0.5-902 m
+  winds - CCMP            + date, lat/lon
+            |
+            v
+ PREPROCESSING  regrid to 0.25 deg, daily alignment, land/seabed masks,
+                contiguous time split, train-only normalization
+            |
+            v
+ ENCODER (satellite embedding)
+   Fourier Neural Operator  -> basin-scale patterns
+   Vision Transformer       -> long-range links between regions
+   CNN stem                 -> local detail
+   => latent ocean embedding
+            |
+            v
+ DECODER (U-Net)  -> temperature at 35 depths  + its uncertainty
+            |
+ PHYSICS-INFORMED TRAINING
+   cyclone-aware losses: TCHP, D26, D20, MLD (differentiable versions)
+   static stability, steric-height / sea-level consistency
+            |
+            v
+ OUTPUTS   daily 0.25 deg NetCDF: temperature + temperature_std
+           cyclone products: TCHP, D26, D20, MLD
+           latent embeddings
+            |
+ VALIDATION  held-out days vs GLORYS, independent ARGO floats (profiles and products),
+             uncertainty calibration, real-event case study (deep depression, 1 Aug 2023)
+```
+
+### Inputs (all from the problem statement's product list)
+
+| variable | product | native resolution |
+|---|---|---|
+| Sea surface temperature | OSTIA | 0.05°, daily |
+| Sea surface salinity | SMOS / SMAP | 0.125°, daily |
+| Sea level anomaly, absolute dynamic topography | DUACS | 0.125–0.25°, daily |
+| Surface currents | OSCAR | 0.25°, daily |
+| 10 m winds | CCMP v3.1 | 0.25°, 6-hourly → daily |
+| Training target | GLORYS12 reanalysis `thetao` | 1/12° → 0.25°, 35 levels |
+| Independent validation | ARGO floats (Ifremer ERDDAP, QC = good) | profiles |
+
+The harmonized cube (daily, 0.25°, 69 × 81 grid) is produced by the team's data notebook.
+ASCAT L2 swaths are not used as inputs (single daily swaths are not gridded fields; CCMP
+already assimilates ASCAT).
+
+### What is distinctive
+
+- **Full 3D field + consistent cyclone products.** Earlier satellite TCHP methods for the
+  Indian Ocean estimate TCHP directly as a 2D field. OceanEmbed reconstructs the whole
+  temperature column and is trained so that the TCHP, D26, D20 and MLD *derived from that
+  column* are accurate.
+- **Uncertainty checked against real floats.** A heteroscedastic head plus a 3-seed ensemble,
+  calibrated on validation days and tested against held-out GLORYS and ARGO, including the
+  float-vs-model-cell representativeness error.
+- **Honest evaluation.** Contiguous time split, climatology baseline, 3 seeds per model,
+  ablations (U-Net vs ViT+FNO, with/without physics, with/without previous-day inputs),
+  per-depth and per-product metrics.
+
+### What the ablations show
+
+- ViT + FNO encoder beats a plain U-Net slightly and is much more stable across seeds.
+- Previous-day surface inputs reduce error by ~5 %.
+- Physics losses keep the output physically stable but do **not** significantly improve
+  overall accuracy; the cyclone-aware loss gives the best D26/TCHP errors, within seed
+  variability.
+
+### Limitations
+
+- 3 months (summer monsoon) of training data, one basin.
+- Mixed layer depth is not better than climatology.
+- In the 1 Aug 2023 deep-depression case study the model captures the initial heat loss but
+  recovers too quickly afterwards: it has not learned the post-storm response from 61
+  training days. More years (with many cyclones) is the main next step.
+- GLORYS assimilates ARGO, so ARGO is independent of the model's inputs and training, but not
+  perfectly independent of its training target.
+
+---
+
+## Quick start
+
+**Colab (recommended, GPU, ~20–25 min):** open
+[`notebooks/run_pipeline_colab.ipynb`](https://colab.research.google.com/github/dhriti-goswami/Ocean_Embed/blob/pinn-pipeline/notebooks/run_pipeline_colab.ipynb),
+choose a T4 GPU runtime, **Run all**. It downloads the data cube, trains 4 models × 3 seeds,
+evaluates, validates against ARGO, calibrates uncertainty, runs the case study, draws all
+figures and packs everything into one zip.
+
+**Command line:**
 
 ```bash
-git clone https://github.com/dhriti-goswami/Ocean_Embed.git
-cd Ocean_Embed
-pip install -r requirements.txt
+git clone -b pinn-pipeline https://github.com/dhriti-goswami/Ocean_Embed.git
+cd Ocean_Embed && pip install -r requirements.txt
+
+# train the main model (repeat with --seed 1, 2 for the ensemble)
+python -m oceanembed.train --data cube.nc --out runs/oceanembed_cyclone_s0 \
+    --variant oceanembed --physics --phys_mode cyclone --uncertainty --seed 0
+
+python -m oceanembed.evaluate    --data cube.nc --runs runs/* --out results        # vs GLORYS + products
+python -m oceanembed.argo        --data cube.nc --runs runs/* --out results        # vs ARGO floats
+python -m oceanembed.uncertainty --data cube.nc --runs runs/oceanembed_cyclone_s* \
+    --out results --outputs outputs                                                # calibrated NetCDF
+python -m oceanembed.casestudy   --data cube.nc --runs runs/oceanembed_cyclone_s* --out results
 ```
 
-Data must be downloaded separately — see `data/README.md` for the exact
-source IDs, date ranges, and API calls used.
+**Smoke test without real data** (synthetic cube with the real shapes, CPU, ~2 min):
+`python tests/smoke_test.py`
 
-## Usage
+### Output format
 
-### Run the full pipeline
+`outputs/oceanembed_temperature_daily_0p25.nc` — CF-1.8 NetCDF, variables `temperature` and
+`temperature_std` on `(time, depth, latitude, longitude)`, °C. This is the format the team's
+FastAPI backend reads for depth slices and click-to-profile.
 
-```python
-from src.data.preprocess import run_pipeline, TARGET_DEPTHS
-from src.data.dataset import OceanDataset
-from src.models.cnn import OceanCNN, masked_mse_loss
+---
 
-X, Y, ocean_mask, channel_names, common_times = run_pipeline(
-    "glorys_temp.nc", "glorys_surface.nc", "era5_wind.nc", "gebco.nc"
-)
-```
-
-### Train
-
-```python
-import torch
-from torch.utils.data import DataLoader
-
-train_ds = OceanDataset(X[:100], Y[:100], ocean_mask)
-train_loader = DataLoader(train_ds, batch_size=8, shuffle=True)
-
-model = OceanCNN(in_channels=5, out_depths=15)
-optimizer = torch.optim.Adam(model.parameters(), lr=1e-3)
-
-for epoch in range(80):
-    for xb, yb, mb in train_loader:
-        optimizer.zero_grad()
-        loss = masked_mse_loss(model(xb), yb, mb)
-        loss.backward()
-        optimizer.step()
-```
-
-### Evaluate against held-out days
-
-```python
-from src.eval.metrics import compute_metrics, print_metrics_report
-metrics = compute_metrics(val_true, val_pred, ocean_mask)
-print_metrics_report(metrics, TARGET_DEPTHS)
-```
-
-### Validate against real ARGO floats
-
-```python
-from src.eval.argo_direct import fetch_argo_csv, match_argo_to_predictions
-
-argo_df = fetch_argo_csv(lon_min=80, lon_max=95, lat_min=5, lat_max=22,
-                          date_min="2023-06-01", date_max="2023-09-30")
-matched_true, matched_pred = match_argo_to_predictions(
-    argo_df, predict_fn, model_lat, model_lon, model_times, TARGET_DEPTHS
-)
-```
-
-**Training output:** model checkpoint (`checkpoints/oceancnn_4months.pth`),
-normalization stats (`checkpoints/normalization_stats.npz`), bias
-correction (`checkpoints/bias_correction.npz`).
-
-## Project Structure
+## Project structure
 
 ```
 Ocean_Embed/
-├── src/
-│   ├── data/
-│   │   ├── preprocess.py        # regrid, harmonize time, depth-interpolate, mask
-│   │   └── dataset.py           # PyTorch Dataset, per-depth normalization
-│   ├── models/
-│   │   └── cnn.py               # baseline CNN + masked loss
-│   └── eval/
-│       ├── metrics.py           # RMSE/MAE/R²/correlation/bias, overall + per-depth
-│       ├── hybrid.py            # per-depth CNN-vs-baseline model selection
-│       └── argo_direct.py       # direct ARGO fetch (Ifremer ERDDAP) + matching
-├── data/                        # local data cache — gitignored, see data/README.md
-├── docs/
-│   ├── ARCHITECTURE.md          # model design, layer-by-layer
-│   ├── TRAINING_METHODOLOGY.md  # split strategy, normalization, both bugs found & fixed
-│   └── VALIDATION.md            # full results tables, bias correction, limitations
-├── results/metrics/              # saved numeric results
-└── checkpoints/                  # trained weights, norm stats, bias correction
+├── oceanembed/                    # v2.1 pipeline (current)
+│   ├── data.py                    # load cube, masks, previous-day inputs, split, normalization
+│   ├── models.py                  # FNO + ViT encoder, U-Net decoder, uncertainty head
+│   ├── physics.py                 # cyclone-aware + stability + steric losses
+│   ├── products.py                # TCHP, D26, D20, MLD (exact definitions)
+│   ├── train.py                   # training loop, warm-up/ramp, checkpointing
+│   ├── evaluate.py                # held-out GLORYS metrics, per depth + products
+│   ├── argo.py                    # ARGO fetch (QC), matching, profile + product metrics
+│   ├── uncertainty.py             # calibration, seed ensemble, coverage, final NetCDF
+│   ├── casestudy.py               # 1 Aug 2023 deep-depression case study
+│   ├── infer.py                   # prediction + NetCDF/embedding export
+│   ├── plots.py                   # figures
+│   └── README.md                  # full method, results and caveats
+├── notebooks/run_pipeline_colab.ipynb
+├── tests/                         # synthetic cube + end-to-end smoke test
+├── src/                           # v1 CNN baseline (legacy)
+├── docs/                          # v1 documentation
+├── results/, checkpoints/         # v1 results and weights
+└── requirements.txt
 ```
 
-## Documentation
+---
 
-- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — model design, input/output shapes, layer-by-layer
-- [`docs/TRAINING_METHODOLOGY.md`](docs/TRAINING_METHODOLOGY.md) — split strategy, normalization approach, both real bugs found and fixed during development
-- [`docs/VALIDATION.md`](docs/VALIDATION.md) — full per-depth results (GLORYS + ARGO + bias-corrected), the hybrid model-selection mechanism, and known limitations
+## Earlier baseline (v1, `src/`)
 
-## Future Work — Physics-Informed Neural Network (PINN)
-
-The current CNN is a deliberately simple baseline, built first to validate
-the full data pipeline end-to-end before adding architectural complexity.
-The planned next phase adds a PINN — loss terms for known physical
-constraints (mass conservation, thermodynamic consistency, geostrophic
-balance) rather than relying on data patterns alone. This should help most
-at depths where the current model has the least natural signal to learn
-from, since physical constraints hold regardless of a given season's data
-variability. The data pipeline, masking, evaluation, and ARGO-matching
-code here are architecture-agnostic and carry over directly — only
-`src/models/` changes.
+The first version was a plain CNN predicting 15 depth levels from GLORYS surface fields,
+ERA5 winds and GEBCO bathymetry (not satellite products, and without SST), trained on 4 months
+of data. It reached 0.53 °C RMSE on held-out GLORYS days and 0.96 °C against ARGO (0.76 °C after
+a held-out-tested bias correction). v2 replaced its inputs with the problem statement's
+satellite products and rebuilt the model; the v1 code and its documentation
+([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
+[`docs/TRAINING_METHODOLOGY.md`](docs/TRAINING_METHODOLOGY.md),
+[`docs/VALIDATION.md`](docs/VALIDATION.md)) are kept for reference. The two versions' numbers
+are not directly comparable (different inputs, depth levels, periods and splits).
 
 ## Requirements
 
-Python 3.10+, PyTorch 2.0+. See `requirements.txt`. `argopy` is **not**
-required — ARGO data is fetched directly via HTTP
-(`src/eval/argo_direct.py`), since `argopy`/`erddapy` had an unresolved
-version conflict in testing.
+Python 3.10+, PyTorch 2.0+, xarray, netCDF4, pandas, scipy, matplotlib (see
+`requirements.txt`). ARGO data is fetched directly over HTTP from Ifremer ERDDAP.
 
 ## Disclaimer
 
-Research/hackathon prototype. Not for operational or safety-critical use.
+Research / hackathon prototype. Not for operational or safety-critical use.
