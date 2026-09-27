@@ -1,7 +1,7 @@
-"""Compare trained runs on the held-out TEST days (GLORYS target) + physics diagnostics.
+"""Compare trained runs on the held-out TEST days (GLORYS target): temperature per depth,
+cyclone products (TCHP, D26, D20, MLD) and physics diagnostics.
 
-    python -m oceanembed.evaluate --data cube.nc --runs runs/unet runs/oceanembed_nophys \
-        runs/oceanembed_pinn --out results/
+    python -m oceanembed evaluate --data cube.nc --runs runs/* --out results/
 """
 import argparse
 import warnings
@@ -12,10 +12,10 @@ import os
 import numpy as np
 import pandas as pd
 
-from .data import DataConfig, OceanData
-from .infer import load_model, predict_all, data_for
-from .products import product_rmse
-from .physics import density
+from oceanembed.data.cube import DataConfig, OceanData
+from oceanembed.inference import load_model, predict_all, data_for
+from oceanembed.physics.products import product_rmse
+from oceanembed.physics.losses import density
 import torch
 
 
@@ -58,13 +58,6 @@ def deep_inversion_pct(T, depths, mask3d, below=150.0, tol=0.05):
     pair = (mask3d[:-1] & mask3d[1:]) & (depths[1:] >= below)[:, None, None]
     bad = ((T[:, 1:] - T[:, :-1]) > tol) & pair[None]
     return float(100 * bad.sum() / max(pair.sum() * T.shape[0], 1))
-
-
-def mld_rmse(T_pred, T_true, depths):
-    from .data import compute_mld
-    a, b = compute_mld(T_pred, depths), compute_mld(T_true, depths)
-    m = ~np.isnan(T_true[:, 0])
-    return float(np.sqrt(np.mean((a[m] - b[m]) ** 2)))
 
 
 def evaluate(data_path, run_dirs, out_dir):

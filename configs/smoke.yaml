@@ -1,0 +1,15 @@
+# Tiny run for tests on CPU (synthetic cube). Not for results.
+model:
+  variant: oceanembed
+  uncertainty: true
+data:
+  history: 2
+physics:
+  physics: true
+  phys_mode: cyclone
+  warmup: 1
+  ramp: 1
+training:
+  epochs: 3
+  batch: 4
+  log_every: 1

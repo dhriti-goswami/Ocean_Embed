@@ -9,7 +9,7 @@ the VALIDATION days (never the test days). The ensemble then combines
 Calibration is checked on the TEST days against GLORYS and against independent ARGO floats:
 a well-calibrated 90% interval should contain ~90% of the true values.
 
-    python -m oceanembed.uncertainty --data cube.nc --runs runs/oceanembed_cyclone_s0 ... \
+    python -m oceanembed uncertainty --data cube.nc --runs runs/oceanembed_cyclone_s0 ... \
         --out results --outputs outputs --argo_cache results/argo_cache.csv
 """
 import argparse
@@ -21,8 +21,8 @@ import numpy as np
 import pandas as pd
 from scipy.stats import norm
 
-from .infer import load_model, predict_all, data_for, write_outputs
-from .argo import fetch_argo, match
+from oceanembed.inference import load_model, predict_all, data_for, write_outputs
+from oceanembed.eval.argo import fetch_argo, match
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 LEVELS = np.array([0.5, 0.68, 0.8, 0.9, 0.95])

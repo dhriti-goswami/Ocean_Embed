@@ -1,36 +1,35 @@
-# Data Sources
+# Data
 
-Confirmed via test pulls on 2026-09-12. All variables fetched for the
-Bay of Bengal box: lon 80–95°E, lat 5–22°N.
+Nothing in `data/raw/` or `data/processed/` is committed (size). Put the harmonized cube at
+`data/processed/cube.nc`, or pass any path with `--data`.
 
-## Sources
+## Harmonized cube (model input)
 
-| Source | Variables | Native resolution | Access method |
+Produced by the team's data notebook (downloads + xESMF regridding + daily alignment).
+One NetCDF file, daily, 0.25°, Bay of Bengal (5–22 °N, 80–100 °E), 1 Jun – 31 Aug 2023.
+
+| variable | dims | source | notes |
 |---|---|---|---|
-| GLORYS12V1 (CMEMS) | temperature (35 native depths, 0.49–902m) | 0.083° (205×181 pts) | `copernicusmarine` Python API |
-| GLORYS12V1 (CMEMS) | salinity, SSH, currents (u,v) — surface | 0.083° (205×181 pts) | `copernicusmarine` Python API |
-| ERA5 (CDS) | 10m wind (u,v) | 0.25° (69×61 pts) | `cdsapi` Python API |
-| GEBCO_2023 | bathymetry (elevation) | ~15 arc-sec (4080×3600 pts), static | GEBCO Grid Subsetting App (manual, emailed link) |
+| `analysed_sst` | time, lat, lon | OSTIA | Kelvin or °C (converted automatically) |
+| `sos` | time, lat, lon | SMOS/SMAP | PSU |
+| `sla`, `adt` | time, lat, lon | DUACS | m |
+| `u`, `v` | time, lat, lon | OSCAR | m/s |
+| `uwnd`, `vwnd` | time, lat, lon | CCMP v3.1 (daily mean) | m/s |
+| `ascat_uwnd`, `ascat_vwnd` | time, lat, lon | ASCAT L2 | present in the cube, **not used** |
+| `thetao` | time, depth, lat, lon | GLORYS12 | °C, 35 levels 0.49–902 m (target) |
+| `so` *(optional)* | time, depth, lat, lon | GLORYS12 | if present, salinity is also predicted |
 
-## Target depth levels (15)
+`latitude`/`longitude` names are accepted as well. Shapes of the current cube:
+`time 92, lat 69, lon 81, depth 35`.
 
-0, 5, 10, 20, 30, 50, 75, 100, 125, 150, 200, 300, 500, 700, 1000 m
+In Colab the notebook downloads the team's shared copy automatically.
 
-Interpolated from GLORYS's 35 native depth levels — not a 1:1 match, see
-`docs/TRAINING_METHODOLOGY.md` (once written) for the interpolation approach.
+## ARGO
 
-## Status
+Fetched at run time from Ifremer ERDDAP (`ArgoFloats`, QC flag 1) and cached to
+`results/argo_cache.csv`. Nothing to download manually.
 
-- [x] Test pull confirmed for all 4 sources (1 day, small box)
-- [x] 2-week pull confirmed (June 1–14, 2023) for pipeline development
-- [ ] Full year (June 2023–?) pull — planned after 2-week pipeline validated
-- [ ] Regridding to common resolution — not yet decided (0.083° vs 0.25°)
+## Synthetic cube (tests)
 
-## Known issues to resolve
-
-- Three different native grids (GLORYS 0.083°, ERA5 0.25°, GEBCO 15 arc-sec)
-  require regridding onto one common grid before model input.
-- ERA5 time coordinate is named `valid_time`, GLORYS uses `time` — needs
-  harmonizing.
-- GLORYS depth levels aren't round numbers (e.g. 0.494, 1.541m) — need
-  interpolation to the 15 clean target depths.
+`python -m oceanembed synthetic data/processed/synthetic.nc` writes a fake cube with the same
+variable names and shapes, used by the tests and `make smoke`.

@@ -4,7 +4,7 @@ ARGO is never used in training. Each profile is matched to the model grid cell a
 same calendar day, and the model's 35-level profile is interpolated to the float's own
 measurement depths (pressure in dbar ~ depth in m over 0-900 m).
 
-    python -m oceanembed.argo --data cube.nc --runs runs/unet runs/oceanembed_pinn --out results/
+    python -m oceanembed argo --data cube.nc --runs runs/unet runs/oceanembed_pinn --out results/
 """
 import argparse
 import io
@@ -14,10 +14,10 @@ import numpy as np
 import pandas as pd
 import requests
 
-from .data import DataConfig, OceanData
-from .evaluate import metrics, climatology
-from .infer import load_model, predict_all, data_for
-from .products import all_products
+from oceanembed.data.cube import DataConfig, OceanData
+from oceanembed.eval.glorys import metrics, climatology
+from oceanembed.inference import load_model, predict_all, data_for
+from oceanembed.physics.products import all_products
 
 BANDS = [(0, 10), (10, 50), (50, 100), (100, 200), (200, 500), (500, 950)]
 ERDDAP = "https://erddap.ifremer.fr/erddap/tabledap/ArgoFloats.csv"

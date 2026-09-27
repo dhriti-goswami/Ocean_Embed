@@ -1,0 +1,16 @@
+# Tool configuration only. Dependencies are in requirements.txt.
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = ["-ra", "--strict-markers"]
+markers = [
+    "slow: end-to-end runs that take more than a few seconds (deselect with '-m \"not slow\"')",
+]
+filterwarnings = ["ignore::RuntimeWarning", "ignore::UserWarning"]
+
+[tool.ruff]
+line-length = 110
+target-version = "py310"
+extend-exclude = ["legacy", "notebooks"]
