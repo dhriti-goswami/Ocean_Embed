@@ -1,0 +1,25 @@
+# Main model (OceanEmbed v2.1): ViT + FNO encoder, U-Net decoder,
+# cyclone-aware physics losses, calibrated uncertainty head, previous-2-day inputs.
+# Usage: python -m oceanembed train --config configs/main.yaml --data <cube.nc> --out runs/main_s0 --seed 0
+model:
+  variant: oceanembed        # oceanembed = ViT + FNO + CNN stem; unet = plain U-Net
+  uncertainty: true          # heteroscedastic head (predicts temperature std)
+data:
+  history: 2                 # surface fields from t-1, t-2 as extra inputs
+physics:
+  physics: true
+  phys_mode: cyclone         # cyclone = TCHP/D26/D20/MLD + stability + steric; constraints = v2
+  w_quant: 0.1               # weight of the cyclone-quantity terms
+  w_stab: 1.0                # static stability
+  w_steric: 0.1              # steric height vs observed SLA
+  w_mld: 0.05                # MLD homogeneity (constraints mode only)
+  warmup: 5                  # epochs before physics switches on
+  ramp: 5                    # epochs to reach full physics weight
+training:
+  epochs: 200
+  batch: 4
+  lr: 0.001
+  wd: 0.0005
+  noise: 0.05                # input-noise augmentation (normalized units)
+  patience: 40
+  log_every: 25

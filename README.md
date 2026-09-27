@@ -9,8 +9,8 @@ isotherm depths, mixed layer depth).
 Built for **Smart India Hackathon 2026**, Problem Statement **26066** (INCOIS), team
 **BitShifters98**.
 
-> Current system: **v2.1** (`oceanembed/`). The earlier CNN baseline (v1, `src/`) is kept for
-> reference at the end of this page.
+> Current system: **v2.1** (`oceanembed/`). The earlier CNN baseline (v1) is kept in
+> [`legacy/v1/`](legacy/v1/).
 
 ---
 
@@ -25,7 +25,7 @@ Built for **Smart India Hackathon 2026**, Problem Statement **26066** (INCOIS), 
 | Share of observations inside the 90 % uncertainty interval | **83–87 %** | – | – |
 
 All numbers are means over 3 training seeds. Full tables, ablations and caveats:
-[`oceanembed/README.md`](oceanembed/README.md#results-bay-of-bengal-1-jun--31-aug-2023).
+[`docs/RESULTS.md`](docs/RESULTS.md).
 
 ---
 
@@ -121,71 +121,100 @@ choose a T4 GPU runtime, **Run all**. It downloads the data cube, trains 4 model
 evaluates, validates against ARGO, calibrates uncertainty, runs the case study, draws all
 figures and packs everything into one zip.
 
-**Command line:**
+**Locally:**
 
 ```bash
 git clone -b pinn-pipeline https://github.com/dhriti-goswami/Ocean_Embed.git
-cd Ocean_Embed && pip install -r requirements.txt
-
-# train the main model (repeat with --seed 1, 2 for the ensemble)
-python -m oceanembed.train --data cube.nc --out runs/oceanembed_cyclone_s0 \
-    --variant oceanembed --physics --phys_mode cyclone --uncertainty --seed 0
-
-python -m oceanembed.evaluate    --data cube.nc --runs runs/* --out results        # vs GLORYS + products
-python -m oceanembed.argo        --data cube.nc --runs runs/* --out results        # vs ARGO floats
-python -m oceanembed.uncertainty --data cube.nc --runs runs/oceanembed_cyclone_s* \
-    --out results --outputs outputs                                                # calibrated NetCDF
-python -m oceanembed.casestudy   --data cube.nc --runs runs/oceanembed_cyclone_s* --out results
+cd Ocean_Embed
+make install                              # pip install -r requirements.txt
+make test                                 # unit tests (~5 s)
+make smoke                                # end-to-end on a synthetic cube (~2 min, CPU)
+make train DATA=data/processed/cube.nc    # main model, 3 seeds
+make experiments DATA=data/processed/cube.nc   # full study: 4 models x 3 seeds + all evaluation
 ```
 
-**Smoke test without real data** (synthetic cube with the real shapes, CPU, ~2 min):
-`python tests/smoke_test.py`
+Everything goes through one command-line entry point:
+
+```bash
+python -m oceanembed train --config configs/main.yaml --data cube.nc --out artifacts/runs/main_s0 --seed 0
+python -m oceanembed evaluate    --data cube.nc --runs artifacts/runs/* --out results
+python -m oceanembed argo        --data cube.nc --runs artifacts/runs/* --out results
+python -m oceanembed uncertainty --data cube.nc --runs artifacts/runs/main_s* --out results --outputs artifacts/outputs
+python -m oceanembed casestudy   --data cube.nc --runs artifacts/runs/main_s* --out results
+python -m oceanembed --help
+```
+
+Run settings live in [`configs/`](configs/): `main.yaml` (main model), `ablation_*.yaml`,
+`smoke.yaml`. Any value can be overridden on the command line.
 
 ### Output format
 
-`outputs/oceanembed_temperature_daily_0p25.nc` — CF-1.8 NetCDF, variables `temperature` and
+`oceanembed_temperature_daily_0p25.nc` — CF-1.8 NetCDF, variables `temperature` and
 `temperature_std` on `(time, depth, latitude, longitude)`, °C. This is the format the team's
 FastAPI backend reads for depth slices and click-to-profile.
 
 ---
 
-## Project structure
+## Repository structure
 
 ```
 Ocean_Embed/
-├── oceanembed/                    # v2.1 pipeline (current)
-│   ├── data.py                    # load cube, masks, previous-day inputs, split, normalization
-│   ├── models.py                  # FNO + ViT encoder, U-Net decoder, uncertainty head
-│   ├── physics.py                 # cyclone-aware + stability + steric losses
-│   ├── products.py                # TCHP, D26, D20, MLD (exact definitions)
-│   ├── train.py                   # training loop, warm-up/ramp, checkpointing
-│   ├── evaluate.py                # held-out GLORYS metrics, per depth + products
-│   ├── argo.py                    # ARGO fetch (QC), matching, profile + product metrics
-│   ├── uncertainty.py             # calibration, seed ensemble, coverage, final NetCDF
-│   ├── casestudy.py               # 1 Aug 2023 deep-depression case study
-│   ├── infer.py                   # prediction + NetCDF/embedding export
-│   ├── plots.py                   # figures
-│   └── README.md                  # full method, results and caveats
+├── README.md
+├── Makefile                       # install, test, smoke, train, experiments
+├── pyproject.toml                 # pytest / ruff settings
+├── requirements.txt
+├── configs/                       # run configurations (YAML)
+│   ├── main.yaml                  # main model: ViT+FNO, cyclone-aware physics, uncertainty
+│   ├── ablation_unet.yaml         # plain U-Net
+│   ├── ablation_nophys.yaml       # ViT+FNO, no physics
+│   ├── ablation_constraints.yaml  # ViT+FNO, v2 constraint losses
+│   └── smoke.yaml                 # tiny CPU run for tests
+├── oceanembed/                    # the package
+│   ├── cli.py, __main__.py        # python -m oceanembed <command>
+│   ├── config.py                  # YAML -> run settings
+│   ├── inference.py               # prediction, NetCDF + embedding export
+│   ├── data/                      # cube.py (loading, masks, split, normalization), synthetic.py
+│   ├── models/                    # network.py (FNO + ViT encoder, U-Net decoder, uncertainty head)
+│   ├── physics/                   # losses.py (cyclone-aware, stability, steric), products.py (TCHP, D26, D20, MLD)
+│   ├── train/                     # trainer.py
+│   └── eval/                      # glorys.py, argo.py, uncertainty.py, casestudy.py, figures.py
+├── docs/
+│   ├── ARCHITECTURE.md            # network, shapes, parameter counts
+│   ├── METHODOLOGY.md             # data, split, physics losses, uncertainty, evaluation, limitations
+│   ├── RESULTS.md                 # all result tables + case study
+│   ├── CITATIONS.md               # datasets, methods, prior work
+│   └── legacy_v1/                 # v1 documentation
+├── data/                          # raw/ and processed/ (not committed); README describes the cube
+├── results/                       # result tables and figures (README lists the files)
 ├── notebooks/run_pipeline_colab.ipynb
-├── tests/                         # synthetic cube + end-to-end smoke test
-├── src/                           # v1 CNN baseline (legacy)
-├── docs/                          # v1 documentation
-├── results/, checkpoints/         # v1 results and weights
-└── requirements.txt
+├── scripts/                       # smoke_test.py, run_experiments.sh
+├── tests/                         # pytest: data, models, physics, products, end-to-end
+└── legacy/v1/                     # v1 CNN baseline code and results
 ```
+
+## Documentation
+
+- [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md) — network design, input/output shapes, parameter counts
+- [`docs/METHODOLOGY.md`](docs/METHODOLOGY.md) — data, preprocessing, split, physics losses, uncertainty calibration, evaluation protocol, limitations
+- [`docs/RESULTS.md`](docs/RESULTS.md) — every result table, ablations, case study, relation to prior work
+- [`docs/CITATIONS.md`](docs/CITATIONS.md) — dataset DOIs, methods, prior work
+
+## Tests
+
+`make test` runs 21 unit tests (data leakage, split, masks, product definitions, physics terms,
+model shapes); `make test-all` adds an end-to-end run (train → evaluate → uncertainty →
+NetCDF) on a synthetic cube.
 
 ---
 
-## Earlier baseline (v1, `src/`)
+## Earlier baseline (v1)
 
-The first version was a plain CNN predicting 15 depth levels from GLORYS surface fields,
+The first version ([`legacy/v1/`](legacy/v1/)) was a plain CNN predicting 15 depth levels from GLORYS surface fields,
 ERA5 winds and GEBCO bathymetry (not satellite products, and without SST), trained on 4 months
 of data. It reached 0.53 °C RMSE on held-out GLORYS days and 0.96 °C against ARGO (0.76 °C after
 a held-out-tested bias correction). v2 replaced its inputs with the problem statement's
 satellite products and rebuilt the model; the v1 code and its documentation
-([`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md),
-[`docs/TRAINING_METHODOLOGY.md`](docs/TRAINING_METHODOLOGY.md),
-[`docs/VALIDATION.md`](docs/VALIDATION.md)) are kept for reference. The two versions' numbers
+([`docs/legacy_v1/`](docs/legacy_v1/)) are kept for reference. The two versions' numbers
 are not directly comparable (different inputs, depth levels, periods and splits).
 
 ## Requirements

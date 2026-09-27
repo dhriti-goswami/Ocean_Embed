@@ -1,6 +1,6 @@
 """Run a trained model over every day and write the standardized outputs.
 
-    python -m oceanembed.infer --data cube.nc --ckpt runs/oceanembed_pinn/best.pt --out outputs/
+    python -m oceanembed infer --data cube.nc --ckpt runs/oceanembed_pinn/best.pt --out outputs/
 
 Writes
   oceanembed_temperature_daily_0p25.nc : temperature (time, depth, latitude, longitude), deg C
@@ -15,8 +15,8 @@ import numpy as np
 import torch
 import xarray as xr
 
-from .data import DataConfig, OceanData
-from .models import build_model
+from oceanembed.data.cube import DataConfig, OceanData
+from oceanembed.models.network import build_model
 
 
 def load_model(ckpt_path, device=None):

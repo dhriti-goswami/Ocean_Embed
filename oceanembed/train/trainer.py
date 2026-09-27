@@ -1,8 +1,9 @@
-"""Train one model variant.
+"""Train one model.
 
-    python -m oceanembed.train --data cube.nc --out runs/oceanembed_pinn --variant oceanembed --physics
-    python -m oceanembed.train --data cube.nc --out runs/oceanembed_nophys --variant oceanembed
-    python -m oceanembed.train --data cube.nc --out runs/unet --variant unet
+    python -m oceanembed train --config configs/main.yaml --data cube.nc --out runs/main_s0 --seed 0
+
+Configs: configs/main.yaml (main model), configs/ablation_*.yaml, configs/smoke.yaml.
+Any config value can be overridden on the command line.
 """
 import argparse
 import json
@@ -13,9 +14,10 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 
-from .data import DataConfig, OceanData
-from .models import build_model
-from .physics import PhysicsLoss, reference_density_profile
+from oceanembed.data.cube import DataConfig, OceanData
+from oceanembed.models.network import build_model
+from oceanembed.physics.losses import PhysicsLoss, reference_density_profile
+from oceanembed.config import apply_config
 
 
 def gaussian_nll(logvar, mu, y, m3):
@@ -145,7 +147,8 @@ def train(args):
 
 
 def parse(argv=None):
-    p = argparse.ArgumentParser()
+    p = argparse.ArgumentParser(prog="python -m oceanembed train")
+    p.add_argument("--config", default=None, help="YAML file of defaults (configs/*.yaml)")
     p.add_argument("--data", required=True)
     p.add_argument("--out", required=True)
     p.add_argument("--variant", default="oceanembed", choices=["oceanembed", "unet"])
@@ -167,7 +170,7 @@ def parse(argv=None):
     p.add_argument("--w_steric", type=float, default=0.1)
     p.add_argument("--log_every", type=int, default=10)
     p.add_argument("--seed", type=int, default=42)
-    return p.parse_args(argv)
+    return apply_config(p, argv)
 
 
 if __name__ == "__main__":

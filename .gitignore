@@ -1,15 +1,24 @@
-# Data & model artifacts — too large / often private, never commit these
-data/*
-!data/.gitkeep
-!data/README.md
-!data/README.md
-!data/README.md
+# Data - large and fetched separately (see data/README.md)
+data/raw/*
+data/processed/*
+!data/raw/.gitkeep
+!data/processed/.gitkeep
+*.nc
+*.zarr
+
+# Run outputs (checkpoints, NetCDF, logs) - regenerate with `make experiments`
+artifacts/
 checkpoints/*
 !checkpoints/.gitkeep
+results/argo_cache.csv
+results/argo_matches_*.csv
+results/uncertainty_argo_points.csv
+oceanembed_results.zip
 
 # Python
 __pycache__/
 *.pyc
+.pytest_cache/
 .ipynb_checkpoints/
 .venv/
 venv/

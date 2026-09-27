@@ -5,7 +5,7 @@ north-east Bay of Bengal (IMD: depression -> deep depression on 1 Aug 2023, cent
 Compares, for a box over the north-east Bay, daily box-mean SST (satellite input) and the
 reconstructed MLD, D26 and TCHP against GLORYS and against ARGO floats in the box.
 
-    python -m oceanembed.casestudy --data cube.nc --runs runs/oceanembed_cyclone_s0 ... --out results
+    python -m oceanembed casestudy --data cube.nc --runs runs/oceanembed_cyclone_s0 ... --out results
 """
 import argparse
 import os
@@ -18,9 +18,9 @@ import numpy as np
 import pandas as pd
 import xarray as xr
 
-from .infer import load_model, predict_all, data_for
-from .products import all_products
-from .argo import fetch_argo, argo_products
+from oceanembed.inference import load_model, predict_all, data_for
+from oceanembed.physics.products import all_products
+from oceanembed.eval.argo import fetch_argo, argo_products
 
 warnings.filterwarnings("ignore", category=RuntimeWarning)
 EVENT = {"name": "Deep depression, NE Bay of Bengal", "date": "2023-08-01", "lat": 21.2, "lon": 91.2}

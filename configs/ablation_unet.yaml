@@ -1,0 +1,24 @@
+# Ablation: plain U-Net baseline (no ViT/FNO, no physics).
+# Identical to configs/main.yaml except the lines marked '<-'.
+model:
+  variant: unet             # <- differs from main
+  uncertainty: true
+data:
+  history: 2
+physics:
+  physics: false             # <- differs from main
+  phys_mode: cyclone
+  w_quant: 0.1
+  w_stab: 1.0
+  w_steric: 0.1
+  w_mld: 0.05
+  warmup: 5
+  ramp: 5
+training:
+  epochs: 200
+  batch: 4
+  lr: 0.001
+  wd: 0.0005
+  noise: 0.05
+  patience: 40
+  log_every: 25
