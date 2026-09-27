@@ -35,6 +35,7 @@ class DataConfig:
     pad_multiple: int = 8
     min_input_coverage: float = 0.9      # fraction of days an input must be valid at a cell
     mld_threshold: float = 0.5           # deg C drop from the 10 m reference
+    history_days: int = 2                # also feed surface fields from t-1..t-k (ocean memory)
 
 
 def _standardize(ds):
@@ -132,7 +133,18 @@ class OceanData:
 
         Xn = (X - self.x_mean[None, :, None, None]) / self.x_std[None, :, None, None]
         Xn[:, :, ~m2] = 0.0
-        self.X = np.nan_to_num(Xn, nan=0.0)
+        Xn = np.nan_to_num(Xn, nan=0.0)
+        # Temporal context: surface fields from previous days (subsurface responds with a lag).
+        # Only past/present surface observations are used - never future days, never targets.
+        k = cfg.history_days
+        if k > 0:
+            dyn, stat = Xn[:, :n_in], Xn[:, n_in:]
+            lagged = [dyn[np.clip(np.arange(n) - lag, 0, None)] for lag in range(k, 0, -1)]
+            Xn = np.concatenate(lagged + [dyn, stat], 1)
+            base = self.channel_names
+            self.channel_names = ([f"{v}_t-{lag}" for lag in range(k, 0, -1) for v in base[:n_in]]
+                                  + base)
+        self.X = np.ascontiguousarray(Xn, dtype=np.float32)
         self.T = T                                                 # deg C, NaN kept (for eval)
         self.S = S
         self.mld = compute_mld(T, self.depths, cfg.mld_threshold)  # (N, H, W)

@@ -18,6 +18,15 @@ from .models import build_model
 from .physics import PhysicsLoss, reference_density_profile
 
 
+def gaussian_nll(logvar, mu, y, m3):
+    """Heteroscedastic NLL for the temperature channels. The mean is detached, so learning the
+    uncertainty never degrades the mean prediction; the head learns where errors are large."""
+    s = logvar.clamp(-10, 6)
+    mt = m3.float()
+    nll = 0.5 * (torch.exp(-s) * (y - mu.detach()).pow(2) + s)
+    return (nll * mt).sum() / mt.sum().clamp_min(1)
+
+
 def masked_mse(out, y, m3, n_depth, s_weight=0.5):
     """MSE over valid ocean levels; temperature channels + (down-weighted) salinity channels."""
     mt = m3.float()
@@ -45,7 +54,7 @@ def val_rmse_degC(model, loader, data, device):
 def train(args):
     torch.manual_seed(args.seed); np.random.seed(args.seed)
     device = "cuda" if torch.cuda.is_available() else "cpu"
-    data = OceanData(DataConfig(path=args.data))
+    data = OceanData(DataConfig(path=args.data, history_days=args.history))
     D = len(data.depths)
     out_vars = 2 if data.has_salinity else 1
     print(f"device={device}  grid={data.H}x{data.W} (padded {data.Hp}x{data.Wp})  depths={D}  "
@@ -55,7 +64,9 @@ def train(args):
     tr = DataLoader(data.dataset("train"), batch_size=args.batch, shuffle=True, drop_last=False)
     va = DataLoader(data.dataset("val"), batch_size=args.batch)
 
-    model = build_model(args.variant, data.n_inputs, D, (data.Hp, data.Wp), out_vars).to(device)
+    model = build_model(args.variant, data.n_inputs, D, (data.Hp, data.Wp), out_vars,
+                        uncertainty=args.uncertainty).to(device)
+    K = D * out_vars                                   # number of mean channels
     n_params = sum(p.numel() for p in model.parameters())
     print(f"variant={args.variant} physics={args.physics} params={n_params/1e6:.2f}M")
 
@@ -63,7 +74,8 @@ def train(args):
     if args.physics:
         phys = PhysicsLoss(data.depths, data.norm_stats(), reference_density_profile(data),
                            data.has_salinity, data.sla_channel,
-                           w_mld=args.w_mld, w_stab=args.w_stab, w_steric=args.w_steric).to(device)
+                           w_mld=args.w_mld, w_stab=args.w_stab, w_steric=args.w_steric,
+                           mode=args.phys_mode, w_quant=args.w_quant).to(device)
 
     opt = torch.optim.AdamW(model.parameters(), lr=args.lr, weight_decay=args.wd)
     sched = torch.optim.lr_scheduler.CosineAnnealingLR(opt, T_max=args.epochs)
@@ -81,9 +93,14 @@ def train(args):
             if args.noise > 0:                       # input-noise augmentation (61 days is tiny)
                 ocean = m3[:, :1].float()
                 x = x + args.noise * torch.randn_like(x) * ocean
-            out = model(x)
+            full = model(x)
+            out = full[:, :K]
             loss, lt = masked_mse(out, y, m3, D)
             agg["data"] += lt
+            if args.uncertainty:
+                ln = gaussian_nll(full[:, K:K + D], out[:, :D], y[:, :D], m3)
+                loss = loss + 0.1 * ln
+                agg["nll"] = agg.get("nll", 0.0) + float(ln.detach())
             if phys is not None and ramp > 0:
                 lp, terms = phys(out, y, m3, mld, x)
                 loss = loss + ramp * lp
@@ -101,6 +118,8 @@ def train(args):
         if ep >= select_from and v_rmse < best:
             best, best_ep = v_rmse, ep
             torch.save({"model": model.state_dict(), "variant": args.variant, "out_vars": out_vars,
+                        "uncertainty": args.uncertainty, "history": args.history,
+                        "phys_mode": args.phys_mode if args.physics else None,
                         "in_ch": data.n_inputs, "grid": (data.Hp, data.Wp), "depths": data.depths,
                         "channels": data.channel_names, "norm": data.norm_stats(),
                         "physics": args.physics, "epoch": ep, "val_rmse_degC": v_rmse},
@@ -115,7 +134,9 @@ def train(args):
 
     with open(os.path.join(args.out, "history.json"), "w") as f:
         json.dump(history, f, indent=1)
-    summary = {"variant": args.variant, "physics": args.physics, "best_val_rmse_degC": best,
+    summary = {"variant": args.variant, "physics": args.physics,
+               "phys_mode": args.phys_mode if args.physics else None,
+               "uncertainty": args.uncertainty, "history": args.history, "best_val_rmse_degC": best,
                "best_epoch": best_ep, "params": n_params, "train_seconds": time.time() - t0}
     with open(os.path.join(args.out, "summary.json"), "w") as f:
         json.dump(summary, f, indent=1)
@@ -129,6 +150,10 @@ def parse(argv=None):
     p.add_argument("--out", required=True)
     p.add_argument("--variant", default="oceanembed", choices=["oceanembed", "unet"])
     p.add_argument("--physics", action="store_true")
+    p.add_argument("--phys_mode", default="cyclone", choices=["cyclone", "constraints"])
+    p.add_argument("--w_quant", type=float, default=0.1)
+    p.add_argument("--uncertainty", action="store_true")
+    p.add_argument("--history", type=int, default=2)
     p.add_argument("--epochs", type=int, default=200)
     p.add_argument("--batch", type=int, default=4)
     p.add_argument("--lr", type=float, default=1e-3)

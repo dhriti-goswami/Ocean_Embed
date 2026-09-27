@@ -16,7 +16,8 @@ import requests
 
 from .data import DataConfig, OceanData
 from .evaluate import metrics, climatology
-from .infer import load_model, predict_all
+from .infer import load_model, predict_all, data_for
+from .products import all_products
 
 BANDS = [(0, 10), (10, 50), (50, 100), (100, 200), (200, 500), (500, 950)]
 ERDDAP = "https://erddap.ifremer.fr/erddap/tabledap/ArgoFloats.csv"
@@ -86,6 +87,37 @@ def match(df, data, pred_by_day):
     return pd.DataFrame(rows, columns=["platform", "day", "yi", "xi", "depth", "argo", "model"])
 
 
+def argo_products(df, data, pred_by_day, min_top=10.0, min_bottom=200.0):
+    """D26 / D20 / TCHP / MLD from each ARGO profile (on its own levels) vs the model column
+    at the same cell and day. Profiles must start above `min_top` m and reach `min_bottom` m."""
+    day_of = {np.datetime64(t, "D"): i for i, t in enumerate(data.times)}
+    keys = ["platform_number", "cycle_number"] if "cycle_number" in df else ["platform_number", "time"]
+    rows = []
+    for _, g in df.groupby(keys):
+        g = g.sort_values("pres").drop_duplicates("pres")
+        if len(g) < 10 or g.pres.min() > min_top or g.pres.max() < min_bottom:
+            continue
+        di = day_of.get(np.datetime64(g.time.iloc[0], "D"))
+        if di is None or di not in pred_by_day:
+            continue
+        yi = int(np.abs(data.lat - g.latitude.iloc[0]).argmin())
+        xi = int(np.abs(data.lon - g.longitude.iloc[0]).argmin())
+        if not data.mask2d[yi, xi]:
+            continue
+        # resample ARGO onto the model's depth levels (within the profile's range) so both
+        # sides use identical vertical discretization
+        z = data.depths[data.depths <= g.pres.max()]
+        a = np.interp(z, g.pres.values, g.temp.values)
+        mcol = pred_by_day[di][: len(z), yi, xi]
+        if np.isnan(mcol).any():
+            continue
+        pa, pm = all_products(a[None, :], z, axis=1), all_products(mcol[None, :], z, axis=1)
+        rows.append({"platform": g.platform_number.iloc[0], "day": di,
+                     **{f"argo_{k}": float(v[0]) for k, v in pa.items()},
+                     **{f"model_{k}": float(v[0]) for k, v in pm.items()}})
+    return pd.DataFrame(rows)
+
+
 def band_table(m):
     out = [dict(band=f"{a}-{b} m", **metrics(m.argo.values[(m.depth >= a) & (m.depth < b)],
                                            m.model.values[(m.depth >= a) & (m.depth < b)]))
@@ -103,9 +135,13 @@ def run(data_path, run_dirs, out_dir, cache="data/argo_cache.csv"):
 
     all_days = np.arange(len(data.times))
     models = {"climatology": {d: climatology(data) for d in all_days}}
+    cache = {}
     for rd in run_dirs:
-        model, _ = load_model(os.path.join(rd, "best.pt"))
-        T, _, _ = predict_all(model, data)
+        model, ck = load_model(os.path.join(rd, "best.pt"))
+        h = ck.get("history", 0)
+        if h not in cache:
+            cache[h] = data_for(ck, data_path)
+        T, _, _ = predict_all(model, cache[h])
         models[os.path.basename(os.path.normpath(rd))] = {d: T[d] for d in all_days}
 
     test_days = set(data.idx["test"].tolist())
@@ -126,6 +162,24 @@ def run(data_path, run_dirs, out_dir, cache="data/argo_cache.csv"):
                 print(bt.round(3).to_string(index=False))
     summary = pd.DataFrame(summary)
     summary.to_csv(os.path.join(out_dir, "argo_summary.csv"), index=False)
+
+    # cyclone-relevant products vs ARGO
+    prod_rows = []
+    for name, pbd in models.items():
+        pr = argo_products(df, data, pbd)
+        pr.to_csv(os.path.join(out_dir, f"argo_products_{name}.csv"), index=False)
+        for subset, pp in [("all_days", pr), ("test_days_only", pr[pr.day.isin(test_days)] if len(pr) else pr)]:
+            row = {"model": name, "subset": subset, "profiles": len(pp)}
+            for k in ["D26_m", "D20_m", "TCHP_kJcm2", "MLD_m"]:
+                if len(pp):
+                    e = (pp[f"model_{k}"] - pp[f"argo_{k}"]).dropna()
+                    row[f"{k}_rmse"] = float(np.sqrt((e ** 2).mean())) if len(e) else np.nan
+                    row[f"{k}_bias"] = float(e.mean()) if len(e) else np.nan
+            prod_rows.append(row)
+    prod = pd.DataFrame(prod_rows)
+    prod.to_csv(os.path.join(out_dir, "argo_products_summary.csv"), index=False)
+    print("\n=== Cyclone products vs ARGO ===")
+    print(prod.round(2).to_string(index=False))
     print("\n=== ARGO summary (independent observations) ===")
     print(summary.round(3).to_string(index=False))
     return summary

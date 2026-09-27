@@ -15,6 +15,13 @@ the data loss. Implemented:
 
 Mass conservation needs a predicted velocity field, which this model does not produce;
 it is left for future work rather than approximated.
+
+mode="cyclone" (OceanEmbed v2.1) replaces the mixed-layer homogeneity term with
+*cyclone-aware ocean-state losses*: differentiable (soft) versions of the quantities
+cyclone and ocean forecasters use - 26 degC isotherm depth (D26), Tropical Cyclone Heat
+Potential (TCHP), 20 degC isotherm depth (D20, thermocline) and mixed layer depth - matched
+to the same quantities computed from the target. Unlike inequality constraints (which a
+stable-but-wrong profile satisfies), these pull the profile toward the correct structure.
 """
 import numpy as np
 import torch
@@ -22,6 +29,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 RHO0 = 1025.0
+CP = 3990.0
+# scales used to make the quantity errors comparable (typical acceptable errors)
+QUANT_SCALES = {"D26": 10.0, "D20": 15.0, "MLD": 5.0, "TCHP": 10.0}
 
 
 def density(T, S=None):
@@ -51,8 +61,10 @@ def masked_corr(a, b, m):
 
 class PhysicsLoss(nn.Module):
     def __init__(self, depths, norm, rho_ref, has_salinity, sla_channel,
-                 w_mld=0.05, w_stab=1.0, w_steric=0.1, stab_tol=0.01):
+                 w_mld=0.05, w_stab=1.0, w_steric=0.1, stab_tol=0.01,
+                 mode="cyclone", w_quant=0.1, tau=0.3):
         super().__init__()
+        self.mode, self.w_quant, self.tau = mode, w_quant, tau
         self.D = len(depths)
         self.has_s = has_salinity
         self.sla_channel = sla_channel
@@ -73,6 +85,26 @@ class PhysicsLoss(nn.Module):
         S = (out[:, D:2 * D] * self.s_std[None, :, None, None] + self.s_mean[None, :, None, None]
              if self.has_s else None)
         return T, S
+
+    # --- cyclone-aware soft ocean-state quantities --------------------------
+    def soft_quantities(self, T, m3):
+        w = m3.float() * self.dz[None, :, None, None]
+        tau = self.tau
+        q = {
+            "D26": (torch.sigmoid((T - 26.0) / tau) * w).sum(1),
+            "D20": (torch.sigmoid((T - 20.0) / tau) * w).sum(1),
+            "TCHP": RHO0 * CP * (F.softplus(T - 26.0, beta=4.0) * w).sum(1) / 1e7,   # kJ/cm^2
+            "MLD": (torch.sigmoid((T - (T[:, self.k10:self.k10 + 1] - 0.5)) / 0.1) * w).sum(1),
+        }
+        return q
+
+    def quantity_terms(self, T, T_true, m3):
+        surf = m3[:, 0].float()
+        qp = self.soft_quantities(T, m3)
+        with torch.no_grad():
+            qt = self.soft_quantities(T_true, m3)
+        n = surf.sum().clamp_min(1)
+        return {f"q_{k}": ((((qp[k] - qt[k]) / QUANT_SCALES[k]) ** 2) * surf).sum() / n for k in qp}
 
     # --- individual terms -------------------------------------------------
     def mld_term(self, T, m3, mld):
@@ -109,11 +141,16 @@ class PhysicsLoss(nn.Module):
     def forward(self, out, y, m3, mld, x):
         T, S = self.denorm(out)
         T_true, S_true = self.denorm(y)
-        terms = {"mld": self.mld_term(T, m3, mld),
-                 "stability": self.stability_term(T, S, m3)}
+        terms = {"stability": self.stability_term(T, S, m3)}
+        if self.mode == "constraints":
+            terms["mld"] = self.mld_term(T, m3, mld)
         if self.sla_channel is not None:
             terms["steric"] = self.steric_term(T, S, T_true, S_true, m3, x[:, self.sla_channel])
         total = sum(self.w[k] * v for k, v in terms.items())
+        if self.mode == "cyclone":
+            q = self.quantity_terms(T, T_true, m3)
+            total = total + self.w_quant * sum(q.values()) / len(q)
+            terms.update(q)
         return total, {k: float(v.detach()) for k, v in terms.items()}
 
 

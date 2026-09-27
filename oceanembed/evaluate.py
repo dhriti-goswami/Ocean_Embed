@@ -13,7 +13,8 @@ import numpy as np
 import pandas as pd
 
 from .data import DataConfig, OceanData
-from .infer import load_model, predict_all
+from .infer import load_model, predict_all, data_for
+from .products import product_rmse
 from .physics import density
 import torch
 
@@ -76,9 +77,13 @@ def evaluate(data_path, run_dirs, out_dir):
 
     preds = {"climatology": np.broadcast_to(climatology(data), true.shape).copy()}
     S_preds = {"climatology": None}
+    cache = {}
     for rd in run_dirs:
         model, ck = load_model(os.path.join(rd, "best.pt"))
-        T, S, _ = predict_all(model, data, te)
+        h = ck.get("history", 0)
+        if h not in cache:
+            cache[h] = data_for(ck, data_path)
+        T, S, _ = predict_all(model, cache[h], te)
         name = os.path.basename(os.path.normpath(rd))
         preds[name], S_preds[name] = T, S
 
@@ -90,7 +95,7 @@ def evaluate(data_path, run_dirs, out_dir):
         S_for_stab = S_preds[name] if S_preds[name] is not None else S_true
         row["density_inv_pct"] = 100 * instability_fraction(p, S_for_stab, data.mask3d)
         row["deep_T_inv_pct"] = deep_inversion_pct(p, data.depths, data.mask3d)
-        row["mld_rmse_m"] = mld_rmse(p, true, data.depths)
+        row.update(product_rmse(p, true, data.depths))
         overall.append(row)
     overall = pd.DataFrame(overall)
     tgt_stab = 100 * instability_fraction(true, S_true, data.mask3d)
