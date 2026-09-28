@@ -54,7 +54,7 @@ def export(nc_path, out_path, overwrite=True, products=True):
     for v in ds.data_vars:                      # one chunk per day (no dask needed)
         ds[v].encoding.clear()
         enc[v] = {"chunks": (1,) + tuple(ds[v].shape[1:])}
-    ds.to_zarr(out_path, mode="w", encoding=enc)
+    ds.to_zarr(out_path, mode="w", encoding=enc, zarr_format=2, consolidated=True)  # v2: readable by zarr 2.x and 3.x
     ds.close()
     return out_path
 
