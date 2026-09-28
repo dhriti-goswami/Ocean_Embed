@@ -78,3 +78,11 @@ make test        # fast unit tests
 make test-all    # + end-to-end on a synthetic cube (~2 min)
 make smoke       # quick pipeline check without pytest
 ```
+
+## 11. Backend shows old data / `FileNotFoundError: data/ocean_temperature.zarr`
+
+**Cause:** the backend reads a Zarr store, not the model's NetCDF.
+
+**Fix:** run `python -m oceanembed export-backend --nc <nc> --out <DATA_PATH>` with the path
+from `backend/app/config.py` (relative to the directory the backend is started from), then
+restart the backend (it caches the dataset in memory).

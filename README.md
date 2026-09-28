@@ -11,6 +11,13 @@ Built for **Smart India Hackathon 2026**, Problem Statement **26066** (INCOIS), 
 
 > Current system: **v2.1** (`oceanembed/`). The earlier CNN baseline (v1) is kept in
 > [`legacy/v1/`](legacy/v1/).
+>
+> **In the team repository** this is the `ml/` component: run every command below from `ml/`.
+> The FastAPI backend (`backend/`) reads the model output after
+> `python -m oceanembed export-backend` (see [Output format](#output-format)); the harmonized input
+> cube comes from the team data notebook (`OceanEmbed_v2_Stage1_Setup.ipynb`). Development
+> history: [`dhriti-goswami/Ocean_Embed`](https://github.com/dhriti-goswami/Ocean_Embed/tree/pinn-pipeline),
+> which the Colab notebook clones (public, so no token is needed in Colab).
 
 ---
 
@@ -150,8 +157,29 @@ Run settings live in [`configs/`](configs/): `main.yaml` (main model), `ablation
 ### Output format
 
 `oceanembed_temperature_daily_0p25.nc` — CF-1.8 NetCDF, variables `temperature` and
-`temperature_std` on `(time, depth, latitude, longitude)`, °C. This is the format the team's
-FastAPI backend reads for depth slices and click-to-profile.
+`temperature_std` on `(time, depth, latitude, longitude)`, °C.
+
+The team's FastAPI backend opens a Zarr store (`DATA_PATH` in `backend/app/config.py`,
+default `data/ocean_temperature.zarr`). Convert once per update:
+
+```bash
+python -m oceanembed export-backend --nc artifacts/outputs/oceanembed_temperature_daily_0p25.nc \
+    --out ../backend/data/ocean_temperature.zarr
+```
+
+The store holds `temperature` and `temperature_std` on `(time, depth, latitude, longitude)`
+plus the daily 2D cyclone / ocean-state fields `tchp` (kJ/cm²), `d26`, `d20` and `mld` (m) on
+`(time, latitude, longitude)`. Land and seabed are NaN. Tested: the exported store loads with the
+backend's own `extract_profile` and `extract_layer`.
+
+For the frontend's Validation page, bundle every result table into one JSON file:
+
+```bash
+python -m oceanembed export-results --results results --out results/validation.json
+```
+
+The Colab notebook runs both exports automatically (section 9b) and includes
+`ocean_temperature.zarr` and `validation.json` in the downloaded zip.
 
 ---
 

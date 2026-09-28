@@ -6,6 +6,9 @@
   uncertainty  calibrate + ensemble seeds, write final NetCDF (temperature + temperature_std)
   casestudy    1 Aug 2023 deep depression, NE Bay of Bengal
   infer        single-model NetCDF + embeddings
+  export-backend  convert the NetCDF product into the Zarr store the FastAPI backend reads
+                  (temperature, temperature_std + TCHP, D26, D20, MLD)
+  export-results  bundle all result tables into one validation.json for the frontend
   synthetic    write a synthetic cube with the real file's shapes (for tests)
 """
 import sys
@@ -35,6 +38,10 @@ def main(argv=None):
         from oceanembed.eval.casestudy import main as m; m(rest)
     elif cmd == "infer":
         from oceanembed.inference import main as m; m(rest)
+    elif cmd == "export-backend":
+        from oceanembed.export_backend import main as m; m(rest)
+    elif cmd == "export-results":
+        from oceanembed.export_results import main as m; m(rest)
     elif cmd == "synthetic":
         _synthetic(rest)
     else:

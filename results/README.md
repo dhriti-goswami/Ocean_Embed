@@ -11,6 +11,7 @@ The numbers are summarized in [`docs/RESULTS.md`](../docs/RESULTS.md).
 | `argo_products_summary.csv` | TCHP/D26/D20/MLD vs ARGO |
 | `uncertainty_coverage.csv`, `uncertainty_by_depth.csv` | calibration of the ensemble uncertainty |
 | `casestudy_timeseries.csv`, `casestudy_stats.csv` | 1 Aug 2023 deep-depression case study |
+| `validation.json` | every table above in one file for the frontend (`python -m oceanembed export-results`) |
 | `fig_*.png` | error by depth, training curves, ARGO profiles, depth slices, calibration, case study |
 
 The final gridded product (`oceanembed_temperature_daily_0p25.nc`, variables `temperature`
