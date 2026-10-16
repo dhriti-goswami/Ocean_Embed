@@ -1,4 +1,4 @@
-# OceanEmbed — satellite-embedding reconstruction of subsurface ocean temperature
+# OceanEmbed - satellite-embedding reconstruction of subsurface ocean temperature
 
 OceanEmbed looks only at **surface satellite observations** and reconstructs the ocean's
 **temperature from the surface down to ~900 m**, every day, on a 0.25° grid over the
